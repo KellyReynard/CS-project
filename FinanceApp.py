@@ -11,6 +11,8 @@ st.set_page_config(page_title="The Finance App", layout="wide")
 # Persönliche API-Schlüssel für den Zugang zu den Finanzdaten
 API_KEY_TWELVEDATA = "fa6409603f0f4d2d9413c1b0a01b68ed"
 API_KEY_FMP = "g8o3R38ppGAobko7Iq3TFPCgQy6JjpyZ"
+API_KEY_FINNHUB = "cvt9u2pr01qhup0v5oa0cvt9u2pr01qhup0v5oag"
+
 with st.sidebar: # Erstellen des Navigationsmenüs in der linken Seitenleiste
     selected = option_menu(
         menu_title="Navigation",  # Titel des Menüs
@@ -106,6 +108,9 @@ elif selected == "Recommendation":# Dritte Seite: Empfehlungen je nach Profil
         df_dist = pd.DataFrame.from_dict(dist, orient='index', columns=['Anteil']).reset_index().rename(columns={"index": "Assetklasse"})
         fig_rec = px.pie(df_dist, names='Assetklasse', values='Anteil', title='Empfohlene Portfolio-Zusammensetzung')
         st.plotly_chart(fig_rec)
+    
+    st.info("Hinweis: Diese Empfehlung ist generisch und ersetzt keine individuelle Anlageberatung.")
+
 elif selected == "Obligationen Search":# Vierte Seite: Obligationen anzeigen
     st.title("Obligationen Search")
     st.write("Hier siehst du einige aktuelle Obligationen (nur Demo-Daten)")
@@ -119,12 +124,16 @@ elif selected == "Obligationen Search":# Vierte Seite: Obligationen anzeigen
     st.table(bond_data)
 elif selected == "Stock Search": # Fünfte Seite: Aktien suchen und Kursverlauf anzeigen
     st.title("Stock Search")
+
+    API_KEY_FINNHUB = "cvt9u2pr01qhup0v5oa0cvt9u2pr01qhup0v5oag"
+
     ticker = st.text_input("Gib das Aktien-Ticker-Symbol ein (z.B. AAPL, IBM):")
     selected_period = st.selectbox(
         "Wähle den Zeitraum:",
         options=["7 Tage", "1 Monat", "3 Monate", "6 Monate", "1 Jahr"],
         index=1
     )
+
     period_to_outputsize = {
         "7 Tage": 7,
         "1 Monat": 30,
@@ -133,11 +142,13 @@ elif selected == "Stock Search": # Fünfte Seite: Aktien suchen und Kursverlauf 
         "1 Jahr": 365
     }
     outputsize = period_to_outputsize[selected_period]
+
     if ticker:
         try:
+            # Kursdaten von TwelveData
             url_price = (
                 f"https://api.twelvedata.com/time_series?"
-                f"symbol={ticker}&interval=1day&outputsize={outputsize}&apikey={API_KEY_TWELVEDATA}" #Abruf der Kursdaten von der TwelveData API mit dynamischem Zeitraum
+                f"symbol={ticker}&interval=1day&outputsize={outputsize}&apikey={API_KEY_TWELVEDATA}"
             )
             response_price = requests.get(url_price)
             data_price = response_price.json()
@@ -158,14 +169,24 @@ elif selected == "Stock Search": # Fünfte Seite: Aktien suchen und Kursverlauf 
                 st.plotly_chart(fig_price)
             else:
                 st.error("Keine Daten für das eingegebene Ticker-Symbol gefunden.")
-            # Demo-Daten für Analystenempfehlungen anzeigen
-            st.subheader(f"(Demo) Analystenempfehlungen für {ticker}")
-            analyst_data = pd.DataFrame({
-                "Datum": ["2024-03-01", "2024-02-20", "2024-02-10"],
-                "Analyst": ["John Smith", "Anna Müller", "Tom Wang"],
-                "Bank": ["J.P. Morgan", "Goldman Sachs", "Morgan Stanley"],
-                "Empfehlung": ["Buy", "Hold", "Sell"]
-            })
-            st.table(analyst_data)
+
+            # Analystenempfehlungen
+            st.subheader("Analystenempfehlungen (Finnhub)")
+            url_finnhub = f"https://finnhub.io/api/v1/stock/recommendation?symbol={ticker}&token={API_KEY_FINNHUB}"
+            response_finnhub = requests.get(url_finnhub)
+            data_finnhub = response_finnhub.json()
+
+            if isinstance(data_finnhub, list) and len(data_finnhub) > 0:
+                df_finnhub = pd.DataFrame(data_finnhub)
+                df_finnhub["period"] = pd.to_datetime(df_finnhub["period"])
+                df_finnhub = df_finnhub.sort_values("period", ascending=False)
+
+                st.write("Letzte Empfehlung:")
+                st.write(f"🟢 Buy: {df_finnhub.iloc[0]['buy']} | 🟡 Hold: {df_finnhub.iloc[0]['hold']} | 🔴 Sell: {df_finnhub.iloc[0]['sell']}")
+                st.write(f"Zeitraum: {df_finnhub.iloc[0]['period'].strftime('%Y-%m')}")
+
+                st.line_chart(df_finnhub.set_index("period")[["buy", "hold", "sell"]])
+            else:
+                st.info("Keine Analystendaten gefunden.")
         except Exception as e:
             st.error(f"Fehler beim Abrufen der Daten: {e}")
