@@ -248,13 +248,11 @@ elif selected == "Stock Search":  # Fünfte Seite: Aktien suchen und Kursverlauf
 elif selected == "News":
 
 
-    st.title("📰 Börsennachrichten – Echtzeit")
+    st.title("Börsennachrichten – Echtzeit")
     st.caption("Die Seite aktualisiert sich automatisch alle 60 Sekunden.")
-
-    # 🔁 Refresh automatique
     st_autorefresh(interval=60 * 1000, key="news_refresh")
 
-    # 🧾 Eingabefeld für Ticker
+    # Eingabefeld für Ticker
     symbol = st.text_input("📈 Gib ein Ticker-Symbol ein (z.B. AAPL, TSLA, IBM,):")
 
     def get_news(ticker_symbol):
@@ -276,13 +274,13 @@ elif selected == "News":
         except Exception:
             return []
 
-    # 🔍 Nur ausführen, wenn ein Symbol eingegeben wurde
+    #  Nur ausführen, wenn ein Symbol eingegeben wurde
     if symbol:
         news_data = get_news(symbol)
 
         if not news_data:
             st.warning(f"⚠️ Keine Nachrichten für `{symbol}` gefunden. Zeige allgemeine Marktnachrichten.")
-            news_data = get_news("^GSPC")  # Fallback: Markt-News
+            news_data = get_news("^GSPC")  # Fallback: Markt-News S&P500 
 
         if news_data:
             df_news = pd.DataFrame(news_data)
