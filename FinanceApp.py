@@ -246,9 +246,7 @@ elif selected == "Stock Search":  # Fünfte Seite: Aktien suchen und Kursverlauf
             st.error(f"Fehler: {e}")
             
 elif selected == "News":
-    import yfinance as yf
-    from streamlit_autorefresh import st_autorefresh
-    import pandas as pd
+
 
     st.title("📰 Börsennachrichten – Echtzeit")
     st.caption("Die Seite aktualisiert sich automatisch alle 60 Sekunden.")
@@ -257,7 +255,7 @@ elif selected == "News":
     st_autorefresh(interval=60 * 1000, key="news_refresh")
 
     # 🧾 Eingabefeld für Ticker
-    symbol = st.text_input("📈 Gib ein Ticker-Symbol ein (z.B. AAPL, TSLA, IBM, AMZN):")
+    symbol = st.text_input("📈 Gib ein Ticker-Symbol ein (z.B. AAPL, TSLA, IBM,):")
 
     def get_news(ticker_symbol):
         try:
