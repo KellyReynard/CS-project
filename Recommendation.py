@@ -2,19 +2,12 @@ import streamlit as st
 import plotly.express as px
 
 st.set_page_config(page_title="Empfehlung", layout="wide")
-
 st.title("💡 Anlageempfehlung")
-
-# Sicherstellen, dass ein Risikoprofil vorhanden ist
-if "asset_class" not in st.session_state:
+if "asset_class" not in st.session_state:# Sicherstellen, dass ein Risikoprofil vorhanden ist
     st.warning("Bitte zuerst das Risikoprofil auf der Seite 'Risk Profile' ausfüllen.")
     st.stop()
-
-# Empfohlenes Profil laden
-asset_class = st.session_state["asset_class"]
-
-# Beispielhafte Empfehlungen pro Anlagetyp
-recommendations = {
+asset_class = st.session_state["asset_class"]# Empfohlenes Profil laden
+recommendations = {# Beispielhafte Empfehlungen pro Anlagetyp
     "Einkommen": {
         "description": "Konservativer Ansatz mit Fokus auf Kapitalerhalt. Ideal für Anleger mit geringer Risikobereitschaft.",
         "allocation": {"Obligationen": 70, "Geldmarkt": 20, "Aktien": 10}
@@ -48,12 +41,9 @@ if not data:
 
 st.subheader(f"Dein Anlagetyp: {asset_class}")
 st.write(data["description"])
-
-# Kuchendiagramm zur Visualisierung der Asset Allocation
 allocation_df = px.data.tips()  # Dummy ersetzen
 labels = list(data["allocation"].keys())
 values = list(data["allocation"].values())
-
 fig = px.pie(
     names=labels,
     values=values,
@@ -61,5 +51,4 @@ fig = px.pie(
     hole=0.4
 )
 st.plotly_chart(fig)
-
 st.info("Hinweis: Diese Empfehlung ist generisch und ersetzt keine individuelle Anlageberatung.")
