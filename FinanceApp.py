@@ -5,6 +5,15 @@ import pandas as pd     # Für Tabellen und Daten
 import plotly.express as px  # Für interaktive Graphen
 from streamlit_option_menu import option_menu  # Für ein Menü in der Seitenleiste
 import numpy as np      # Numpy hilft mit Zahlen und Arrays
+from io import BytesIO
+import yfinance as yf
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+from streamlit_autorefresh import st_autorefresh
+
+
+
+
 
 st.set_page_config(page_title="The Finance App", layout="wide")
 
@@ -16,8 +25,8 @@ API_KEY_FINNHUB = "cvt9u2pr01qhup0v5oa0cvt9u2pr01qhup0v5oag"
 with st.sidebar: # Erstellen des Navigationsmenüs in der linken Seitenleiste
     selected = option_menu(
         menu_title="Navigation",  # Titel des Menüs
-        options=["Overview", "Risk Profile", "Recommendation", "Obligationen Search", "Stock Search"],  # Menüoptionen
-        icons=["house", "bar-chart", "lightbulb", "search", "graph-up"],  # Symbole neben den Optionen
+        options=["Overview", "Risk Profile", "Recommendation", "Obligationen Search", "Stock Search", "News"],  # Menüoptionen
+        icons=["house", "bar-chart", "lightbulb", "search", "graph-up", "newspaper"],  # Symbole neben den Optionen
         menu_icon="cast",  # Icon oben links
         default_index=0  # Die erste Seite ("Overview") wird standardmäßig angezeigt
     )
@@ -111,18 +120,27 @@ elif selected == "Recommendation":# Dritte Seite: Empfehlungen je nach Profil
     
     st.info("Hinweis: Diese Empfehlung ist generisch und ersetzt keine individuelle Anlageberatung.")
 
-elif selected == "Obligationen Search":# Vierte Seite: Obligationen anzeigen
+elif selected == "Obligationen Search":  # Vierte Seite: Obligationen anzeigen
     st.title("Obligationen Search")
-    st.write("Hier siehst du einige aktuelle Obligationen (nur Demo-Daten)")
+    st.write("Aktuelle Obligationen auf dem Markt. Die Daten werden von der SIX zur Verfügung gestellt.")
 
-    bond_data = pd.DataFrame({
-        "Emittent": ["UBS", "Credit Suisse", "Nestlé"],
-        "Laufzeit": ["2029", "2031", "2028"],
-        "Zinssatz": [1.5, 2.0, 1.25],
-        "Modified Duration": [4.5, 6.2, 3.8]
-    })
-    st.table(bond_data)
-elif selected == "Stock Search": # Fünfte Seite: Aktien suchen und Kursverlauf anzeigen
+
+    try:
+    
+        excel_url = "https://raw.githubusercontent.com/KellyReynard/CS-project/main/Anleihen_Daten.xlsx"
+        response = requests.get(excel_url)
+        response.raise_for_status()
+        df_bonds = pd.read_excel(BytesIO(response.content), engine="openpyxl")
+        if df_bonds["MaturityDate"].dtype in [int, float]:
+            df_bonds["MaturityDate"] = pd.to_datetime(df_bonds["MaturityDate"].astype(int).astype(str), format="%Y%m%d")
+        st.dataframe(df_bonds)
+
+    except Exception as e:
+        st.error(f"Fehler beim Laden der Datei: {e}")
+
+
+    
+elif selected == "Stock Search":  # Fünfte Seite: Aktien suchen und Kursverlauf anzeigen
     st.title("Stock Search")
 
     API_KEY_FINNHUB = "cvt9u2pr01qhup0v5oa0cvt9u2pr01qhup0v5oag"
@@ -188,5 +206,94 @@ elif selected == "Stock Search": # Fünfte Seite: Aktien suchen und Kursverlauf 
                 st.line_chart(df_finnhub.set_index("period")[["buy", "hold", "sell"]])
             else:
                 st.info("Keine Analystendaten gefunden.")
+
+            # ---------- 🔥 Prognose-Modul 🔥 ----------
+            st.subheader("🔮 Preisvorhersage mit Polynomial Regression")
+
+            stock_data = yf.download(ticker, start='2015-01-01', end='2025-04-25')
+
+            if stock_data.empty:
+                st.write("Keine historischen Daten gefunden.")
+            else:
+                stock_data = stock_data[['Close']]
+                stock_data['Days'] = range(len(stock_data))
+
+                X = stock_data[['Days']]
+                y = stock_data['Close']
+
+                # Polynomial Features (Grad 3)
+                poly = PolynomialFeatures(degree=3)
+                X_poly = poly.fit_transform(X)
+
+                model = LinearRegression()
+                model.fit(X_poly, y)
+
+                # Vorhersage für morgen
+                tomorrow = [[len(stock_data)]]
+                tomorrow_poly = poly.transform(tomorrow)
+                prediction = float(model.predict(tomorrow_poly)[0])
+
+                st.write(f"Aktueller Schlusskurs: {round(stock_data['Close'].iloc[-1], 2)}")
+                st.write(f"📈 Prognostizierter Kurs für morgen: **{round(prediction, 2)}**")
+
+                # Chart: Kursverlauf + Prognosepunkt
+                st.subheader("📊 Kursverlauf mit Prognosepunkt")
+                forecast_df = stock_data.copy()
+                forecast_df.loc[forecast_df.index[-1] + pd.Timedelta(days=1)] = [prediction, len(forecast_df)]
+                st.line_chart(forecast_df['Close'])
+
         except Exception as e:
-            st.error(f"Fehler beim Abrufen der Daten: {e}")
+            st.error(f"Fehler: {e}")
+            
+elif selected == "News":
+    import yfinance as yf
+    from streamlit_autorefresh import st_autorefresh
+    import pandas as pd
+
+    st.title("📰 Börsennachrichten – Echtzeit")
+    st.caption("Die Seite aktualisiert sich automatisch alle 60 Sekunden.")
+
+    # 🔁 Refresh automatique
+    st_autorefresh(interval=60 * 1000, key="news_refresh")
+
+    # 🧾 Eingabefeld für Ticker
+    symbol = st.text_input("📈 Gib ein Ticker-Symbol ein (z.B. AAPL, TSLA, IBM, AMZN):")
+
+    def get_news(ticker_symbol):
+        try:
+            ticker = yf.Ticker(ticker_symbol)
+            news_items = ticker.news
+            news_parsed = []
+
+            for item in news_items:
+                content = item.get("content")
+                if content:
+                    news_parsed.append({
+                        "Titel": content.get("title", "Unbekannt"),
+                        "Quelle": content.get("provider", {}).get("displayName", "Unbekannt"),
+                        "Veröffentlicht am": content.get("pubDate", "Unbekannt"),
+                        "Link": content.get("clickThroughUrl", {}).get("url", "#")
+                    })
+            return news_parsed
+        except Exception:
+            return []
+
+    # 🔍 Nur ausführen, wenn ein Symbol eingegeben wurde
+    if symbol:
+        news_data = get_news(symbol)
+
+        if not news_data:
+            st.warning(f"⚠️ Keine Nachrichten für `{symbol}` gefunden. Zeige allgemeine Marktnachrichten.")
+            news_data = get_news("^GSPC")  # Fallback: Markt-News
+
+        if news_data:
+            df_news = pd.DataFrame(news_data)
+            df_news["Link"] = df_news["Link"].apply(lambda url: f'<a href="{url}" target="_blank"> Öffnen</a>')
+            df_news["Veröffentlicht am"] = pd.to_datetime(df_news["Veröffentlicht am"], errors="coerce")
+
+            st.markdown("### Aktuelle Nachrichten:")
+            st.write(df_news.to_html(escape=False, index=False), unsafe_allow_html=True)
+        else:
+            st.info("Keine aktuellen Nachrichten verfügbar.")
+    else:
+        st.info("Bitte gib ein Ticker-Symbol ein, um Nachrichten zu sehen.")
