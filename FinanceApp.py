@@ -1,26 +1,23 @@
 
-import streamlit as st  # Streamlit ist Framework für Web-Apps in Python
-import requests         # Damit kann man HTTP-Anfragen an APIs senden
-import pandas as pd     # Für Tabellen und Daten
-import plotly.express as px  # Für interaktive Graphen
-from streamlit_option_menu import option_menu  # Für ein Menü in der Seitenleiste
-import numpy as np      # Numpy hilft mit Zahlen und Arrays
-from io import BytesIO
-import yfinance as yf
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression
-from streamlit_autorefresh import st_autorefresh
+import streamlit as st  # Streamlit ist das Framework für Web-Apps in Python
+import requests         # Damit werden HTTP-Anfragen an APIs gesendet
+import pandas as pd     # Die Library Pandas wird importiert für die Datenverarbeitung
+import plotly.express as px  # Diese Bibliothek wird verwendet für interaktive Graphen
+from streamlit_option_menu import option_menu  # Mit dieser Bibliothek kann ein Menü in der Seitenleiste eingefügt werden
+import numpy as np      # Numpy hilft uns mit Zahlen und Arrays zu erstellen
+from io import BytesIO # BytesIO ermöglicht uns das Arbeiten mit binären Daten
+import yfinance as yf # mit Yahoo können Finanzdaten bezogen bzw. abgerufen werden
+from sklearn.preprocessing import PolynomialFeatures # Dient zur Erzeugung von zusätzlichen Merkmalen für polynomielle Regressionen
+from sklearn.linear_model import LinearRegression # wird importiert um lineare Regressionsanalysen durchzuführen
+from streamlit_autorefresh import st_autorefresh # Wird importiert um die Seite "News" alle 60 Sekunden neu zu laden
 
 
-
-
-
-st.set_page_config(page_title="The Finance App", layout="wide")
-
-# Persönliche API-Schlüssel für den Zugang zu den Finanzdaten
+# Persönliche API-Schlüssel für den Zugang zu den Finanzdaten von den Datenanbieter
 API_KEY_TWELVEDATA = "fa6409603f0f4d2d9413c1b0a01b68ed"
 API_KEY_FMP = "g8o3R38ppGAobko7Iq3TFPCgQy6JjpyZ"
 API_KEY_FINNHUB = "cvt9u2pr01qhup0v5oa0cvt9u2pr01qhup0v5oag"
+
+st.set_page_config(page_title="The CapWise App", layout="wide")
 
 with st.sidebar: # Erstellen des Navigationsmenüs in der linken Seitenleiste
     selected = option_menu(
@@ -30,40 +27,40 @@ with st.sidebar: # Erstellen des Navigationsmenüs in der linken Seitenleiste
         menu_icon="cast",  # Icon oben links
         default_index=0  # Die erste Seite ("Overview") wird standardmäßig angezeigt
     )
-if selected == "Overview":# Erste Seite: Übersicht
-    st.title("The Finance App - Overview")
-    st.write("Willkommen zur Finance App! Hier findest du verschiedene Tools und Analysen für deine Investment-Strategie.")
-if selected == "Risk Profile":# Zweite Seite: Risikoprofil bestimmen
+if selected == "Overview": # Erste Seite: Übersicht
+    st.title("The CapWise App")
+    st.write("Willkommen zur CapWise App! Die App hilft dir dabei dein Risikprofil zu bestimmen und dein Geld richtig anzulegen.")
+if selected == "Risk Profile":# Zweite Seite: Hier werden Fragen aufgelistet, um das optimale Risikprofil zu ermitteln
     st.title("Risk Profile")
     st.write("Hier wird dein Risikoprofil anhand einiger Fragen bestimmt.")
-    age = st.slider("Wie alt bist du?", min_value=18, max_value=100, step=1)# Frage 1: Alter des Nutzers
-    invest_horizon = st.number_input("Wie viele Jahre möchtest du anlegen?", min_value=1, step=1) # Frage 2: Anlagehorizont – Wie lange soll das Geld investiert werden?
+    age = st.slider("Wie alt bist du?", min_value=18, max_value=100, step=1)# Frage 1: Alter des Nutzers abfragen, extra erst ab dem Altersjahr von 18 Jahren möglich
+    invest_horizon = st.number_input("Wie viele Jahre möchtest du anlegen?", min_value=1, step=1) # Frage 2: Anlagehorizont: Zahlenfeld, in dem die Anzahl Jahre der Investition bestimmt werden
     risk_behavior = st.slider("Wie risikofreudig bist du?", min_value=0, max_value=100, step=1, 
-                              help="0 = konservativ, 100 = aggressiv")# Frage 3: Persönliche Risikobereitschaft (zwischen 0 und 100)
-    st.write("Wie würdest du reagieren, wenn der Aktienkurs fällt?")   # Frage 4: Reaktion bei Kursverlusten
-    st.write("Beispiel: der Kurs sinkt um 30 %")
+                              help="0 = konservativ, 100 = aggressiv")# Frage 3: Persönliche Risikobereitschaft (zwischen 0 und 100), wird bestimmt mit Slider
+    st.write("Wie würdest du reagieren, wenn der Aktienkurs fällt?")   # Frage 4: Reaktion bei Kursverlusten, hier wird nachfolgend ein Graph aufgezeigt
+    st.write("Beispiel: der Kurs sinkt um 20 %")
 
-    # Visualisierung eines fallenden Aktienkurses, um dem Nutzer ein Gefühl für Verluste zu geben.
+    # Visualisierung eines fallenden Aktienkurses, um dem Nutzer ein Gefühl für Verluste zu geben, der aktualisiert sich jedesmal aufs neue
     dates = pd.date_range(start="2023-01-01", periods=100)
     start_price = 110
     end_price = start_price * 0.8  # 20 % Verlust
-    neg_trend = np.linspace(start_price, end_price, 100)
-    noise = np.random.normal(loc=0, scale=2, size=100)
-    fake_stock_prices = neg_trend + noise # Preis mit Trend + Schwankung berechnen
-    df = pd.DataFrame({"Date": dates, "Price": fake_stock_prices})
+    negativ_trend = np.linspace(start_price, end_price, 100)
+    random_var = np.random.normal(loc=0, scale=2, size=100)
+    stock_prices = negativ_trend + random_var # Preis mit Trend  Schwankungen berechnen
+    df = pd.DataFrame({"Date": dates, "Price": stock_prices})
     df.set_index("Date", inplace=True)
-    fig = px.line(df, x=df.index, y="Price", title="Schwankender Fallender Aktienkurs")
+    fig = px.line(df, x=df.index, y="Price", title="Fallender Aktienkurs")
     st.plotly_chart(fig)
 
-    # Frage 5: Emotionale Reaktion auf Verluste
-    loss_feeling = st.radio("Wie fühlst du dich bei finanziellen Verlusten?", 
+    #hier dann die Frage 4, wie sich die Person fühlt, bei so einem Kursrückgang
+    loss = st.radio("Wie fühlst du dich bei finanziellen Verlusten?", 
                             options=["Kaum berührt", "Waren mir unangenehm", "Unangenehm und Befürchtung alles zu verlieren", "Keine Aussage trifft zu"])
 
-    # Frage 6: Wie viel Geld möchte man investieren?
+    # Frage 5: Wie viel Geld möchte man investieren?
     invest_amount = st.selectbox("Wie hoch ist dein Anlagebetrag?", 
                                      options=["0-10 Tausend", "10-50 Tausend", "100-500 Tausend", ">500 Tausend"])
 
-    # Klassifizierung des Nutzers in einen Anlagetyp, abhängig von seinen Antworten
+    # Klassifizierung des Nutzers in einen Anlagetyp, abhängig von seinen Antworten, aber nur wenige Kombinationen. Es gäbe natürlich X verschieden Kombinationen, welche man kombinieren könnte um eine exaktes Anlageprofil zu bestimmen
     if invest_horizon <= 5 and risk_behavior <= 30 and loss_feeling == "Unangenehm und Befürchtung alles zu verlieren" and invest_amount == "0-10 Tausend":
         asset_class = "Einkommen"
     elif invest_horizon <= 5 and risk_behavior <= 50 and loss_feeling in ["Unangenehm und Befürchtung alles zu verlieren", "Waren mir unangenehm"]:
@@ -79,30 +76,31 @@ if selected == "Risk Profile":# Zweite Seite: Risikoprofil bestimmen
     else:
         asset_class = "Ausgewogen"  # Standardtyp, wenn keine eindeutige Kategorie passt
 
-    # Zeichnen der Risiko-Rendite-Kurve mit Markierung des Nutzerprofils
-    x_risk = np.linspace(0, 100, 6)
+    # Zeichnen der Risiko-Rendite-Kurve mit Markierung des entsprechenden Nutzerprofils
+    x_risiko = np.linspace(0, 100, 6)
     y_return = [1, 2.5, 4, 6.5, 9, 12]
-    asset_classes = ["Einkommen", "Defensiv", "Konservativ", "Ausgewogen", "Wachstum", "Aktien"]
-    asset_positions = {ac: (x_risk[i], y_return[i]) for i, ac in enumerate(asset_classes)}
+    Vermögens_Klassen = ["Einkommen", "Defensiv", "Konservativ", "Ausgewogen", "Wachstum", "Aktien"]
+    Vermögens_Positionen = {x: (x_risiko[i], y_return[i]) for i, x in enumerate(asset_classes)}
 
-    fig_risk_return = px.line(x=x_risk, y=y_return, labels={"x": "Risiko", "y": "Rendite"}, title="Risikoprofil und Anlagetypen")
-    for ac in asset_classes:
-        x_pos, y_pos = asset_positions[ac]
-        fig_risk_return.add_scatter(x=[x_pos], y=[y_pos], mode="markers+text", text=[ac], textposition="top center", marker=dict(size=8, color="blue"))
+    figure_risiko_return = px.line(x=x_risk, y=y_return, labels={"x": "Risiko", "y": "Rendite"}, title="Risikoprofil und Anlagetypen")
+    for item in Vermögens_Klassen:
+        x_pos, y_pos = Vermögens_Positionen[item]
+        figure_risiko_return.add_scatter(x=[x_pos], y=[y_pos], mode="markers+text", text=[item], textposition="top center", marker=dict(size=8, color="blue"))
 
-    selected_x, selected_y = asset_positions[asset_class]
-    fig_risk_return.add_scatter(x=[selected_x], y=[selected_y], mode="markers+text", 
+    selected_x, selected_y = Vermögens_Positionen[Vermögens_Klassen]
+    figure_risiko_return.add_scatter(x=[selected_x], y=[selected_y], mode="markers+text", 
                                 textposition="top center", marker=dict(size=12, color="red", line=dict(width=2, color="black")))
 
-    st.plotly_chart(fig_risk_return)
-    st.write(f"**Basierend auf deinen Antworten ist dein Anlagetyp:** {asset_class}")
-    st.session_state["asset_class"] = asset_class
+    st.plotly_chart(figure_risiko_return)
+    st.write(f"**Basierend auf deinen Antworten ist dein Anlagetyp:** {Vermögens_Klassen}")
+    st.session_state["Vermögens_Klassen"] = Vermögens_Klassen
+    
 elif selected == "Recommendation":# Dritte Seite: Empfehlungen je nach Profil
     st.title("Investment Recommendation")
     st.write("Empfohlene Portfolio-Zusammensetzung basierend auf deinem Profil.")
 
-    asset_class = st.session_state.get("asset_class", "Unbekannt")
-    st.write(f"Dein ermittelter Anlagetyp: **{asset_class}**")
+    asset_class = st.session_state.get("Vermögens_Klassen", "Unbekannt")
+    st.write(f"Dein ermittelter Anlagetyp: **{Vermögens_Klassen}**")
     recommendations = {    # Definition der empfohlenen Verteilung je nach Anlagetyp
         "Einkommen": {"Aktien": 0.0, "Obligationen": 0.9, "Cash": 0.1},
         "Defensiv": {"Aktien": 0.25, "Obligationen": 0.75, "Cash": 0.1},
@@ -112,17 +110,17 @@ elif selected == "Recommendation":# Dritte Seite: Empfehlungen je nach Profil
         "Aktien": {"Aktien": 0.9, "Obligationen": 0.0, "Cash": 0.1}
     }
 
-    if asset_class in recommendations:
-        dist = recommendations[asset_class]
+    if Vermögens_Klassen in recommendations:
+        dist = recommendations[Vermögens_Klassen]
         df_dist = pd.DataFrame.from_dict(dist, orient='index', columns=['Anteil']).reset_index().rename(columns={"index": "Assetklasse"})
         fig_rec = px.pie(df_dist, names='Assetklasse', values='Anteil', title='Empfohlene Portfolio-Zusammensetzung')
         st.plotly_chart(fig_rec)
     
     st.info("Hinweis: Diese Empfehlung ist generisch und ersetzt keine individuelle Anlageberatung.")
 
-elif selected == "Obligationen Search":  # Vierte Seite: Obligationen anzeigen
+elif selected == "Obligationen Search":  # Vierte Seite: Obligationen anzeigen, eine Datenbank erstellt mittels Excel, aktuelle Obligationen Daten wurden von der Webpage von Six (https://www.six-group.com/de/market-data/bonds/bond-explorer.html) heruntergeladen und als Datenbank in das Projekt implementiert. 
     st.title("Obligationen Search")
-    st.write("Aktuelle Obligationen auf dem Markt. Die Daten werden von der SIX zur Verfügung gestellt.")
+    st.write("Aktuelle Obligationen auf dem Markt. Die Daten werden von SIX zur Verfügung gestellt.")
 
 
     try:
@@ -136,7 +134,7 @@ elif selected == "Obligationen Search":  # Vierte Seite: Obligationen anzeigen
         st.dataframe(df_bonds)
 
     except Exception as e:
-        st.error(f"Fehler beim Laden der Datei: {e}")
+        st.error(f"Fehler beim Laden der Datei: {e}") #wurde von ChatGPT empfohlen, falls der Code nicht funktioniert bzw. die Datei nicht geladen werden kann, dass dies so angegeben wird
 
 
     
@@ -186,10 +184,10 @@ elif selected == "Stock Search":  # Fünfte Seite: Aktien suchen und Kursverlauf
                 )
                 st.plotly_chart(fig_price)
             else:
-                st.error("Keine Daten für das eingegebene Ticker-Symbol gefunden.")
+                st.error("Keine Daten für das eingegebene Ticker-Symbol gefunden.") #wurde von ChatGPT empfohlen, falls für den eingegeben Ticker keine Daten abgerufen werden können von der API
 
             # Analystenempfehlungen
-            st.subheader("Analystenempfehlungen (Finnhub)")
+            st.subheader("Analystenempfehlungen")
             url_finnhub = f"https://finnhub.io/api/v1/stock/recommendation?symbol={ticker}&token={API_KEY_FINNHUB}"
             response_finnhub = requests.get(url_finnhub)
             data_finnhub = response_finnhub.json()
@@ -199,13 +197,13 @@ elif selected == "Stock Search":  # Fünfte Seite: Aktien suchen und Kursverlauf
                 df_finnhub["period"] = pd.to_datetime(df_finnhub["period"])
                 df_finnhub = df_finnhub.sort_values("period", ascending=False)
 
-                st.write("Letzte Empfehlung:")
-                st.write(f"🟢 Buy: {df_finnhub.iloc[0]['buy']} | 🟡 Hold: {df_finnhub.iloc[0]['hold']} | 🔴 Sell: {df_finnhub.iloc[0]['sell']}")
-                st.write(f"Zeitraum: {df_finnhub.iloc[0]['period'].strftime('%Y-%m')}")
-
-                st.line_chart(df_finnhub.set_index("period")[["buy", "hold", "sell"]])
+                st.write("Die neuesten Empfehlungen respektive Analysteneinschätzungen zu dieser Aktie")
+                st.write(f"🟢 Buy: {df_finnhub.iloc[0]['buy']}
+                🟡 Hold: {df_finnhub.iloc[0]['hold']} 
+                🔴 Sell: {df_finnhub.iloc[0]['sell']}")
+                
             else:
-                st.info("Keine Analystendaten gefunden.")
+                st.info("Keine Analystendaten gefunden.") #wurde von ChatGPT empfohlen, falls keine Analystenempfehlugen für die eingegeben Aktien von der API abgerufen werden können
 
             # ---------- 🔥 Prognose-Modul 🔥 ----------
             st.subheader("🔮 Preisvorhersage mit Polynomial Regression")
