@@ -26,7 +26,7 @@ st.set_page_config(page_title="The CapWise App", layout="wide")
 with st.sidebar: # Erstellen des Navigationsmenüs in der linken Seitenleiste
     selected = option_menu(
         menu_title="Navigation",  # Titel des Menüs
-        options=["Overview", "Risk Profile", "Recommendation", "Obligationen Search", "Stock Search", "News"],  # Menüoptionen
+        options=["Übersicht", "Risikoprofil", "Investitionsempfehlung", "Obligationen Suche", "Aktien Suche", "News"],  # Menüoptionen
         icons=["house", "bar-chart", "lightbulb", "search", "graph-up", "newspaper"],  # Symbole neben den Optionen
         menu_icon="cast",  # Icon oben links
         default_index=0  # Die erste Seite ("Overview") wird standardmäßig angezeigt
@@ -34,7 +34,6 @@ with st.sidebar: # Erstellen des Navigationsmenüs in der linken Seitenleiste
 if selected == "Overview": # Erste Seite: Übersicht
     st.title("The CapWise App")
     st.write("Willkommen zur CapWise App! Die App hilft dir dabei dein Risikprofil zu bestimmen und dein Geld richtig anzulegen.")
-    st.title("Willkommen bei The Finance App")
     st.video("https://www.youtube.com/watch?v=DEIN_VIDEO_ID") # Hier kannst du den Link zu deinem Video einfügen
 
 
@@ -69,8 +68,8 @@ if selected == "Overview": # Erste Seite: Übersicht
 
     """)
 
-if selected == "Risk Profile":# Zweite Seite: Hier werden Fragen aufgelistet, um das optimale Risikprofil zu ermitteln
-    st.title("Risk Profile")
+if selected == "Risikoprofil":# Zweite Seite: Hier werden Fragen aufgelistet, um das optimale Risikprofil zu ermitteln
+    st.title("Risikoprofil")
     st.write("Hier wird dein Risikoprofil anhand einiger Fragen bestimmt.")
     age = st.slider("Wie alt bist du?", min_value=18, max_value=100, step=1)# Frage 1: Alter des Nutzers abfragen, extra erst ab dem Altersjahr von 18 Jahren möglich
     invest_horizon = st.number_input("Wie viele Jahre möchtest du anlegen?", min_value=1, step=1) # Frage 2: Anlagehorizont: Zahlenfeld, in dem die Anzahl Jahre der Investition bestimmt werden
@@ -99,7 +98,7 @@ if selected == "Risk Profile":# Zweite Seite: Hier werden Fragen aufgelistet, um
     invest_amount = st.selectbox("Wie hoch ist dein Anlagebetrag?", 
                                      options=["0-10 Tausend", "10-50 Tausend", "100-500 Tausend", ">500 Tausend"])
 
-    # Klassifizierung des Nutzers in einen Anlagetyp, abhängig von seinen Antworten, aber nur wenige Kombinationen. Es gäbe natürlich X verschieden Kombinationen, welche man kombinieren könnte um eine exaktes Anlageprofil zu bestimmen
+    # Klassifizierung des Nutzers in einen Anlagetyp, abhängig von seinen Antworten, aber nur wenige Kombinationen. Es gäbe natürlich extrem viele verschieden Kombinationen, welche man kombinieren könnte um eine exaktes Anlageprofil zu bestimmen. Wir haben uns aus Komplexitätsgründen dagegen entschieden.
     if invest_horizon <= 5 and risk_behavior <= 30 and loss_feeling == "Unangenehm und Befürchtung alles zu verlieren" and invest_amount == "0-10 Tausend":
         asset_class = "Einkommen"
     elif invest_horizon <= 5 and risk_behavior <= 50 and loss_feeling in ["Unangenehm und Befürchtung alles zu verlieren", "Waren mir unangenehm"]:
@@ -135,16 +134,15 @@ if selected == "Risk Profile":# Zweite Seite: Hier werden Fragen aufgelistet, um
     st.write(f"**Basierend auf deinen Antworten ist dein Anlagetyp:** {asset_class}")
     st.session_state["Anlagetyp"] = asset_class
     
-elif selected == "Recommendation":  # Third page: recommendations by profile
-    st.title("Investment Recommendation")
+elif selected == "Investitionsempfehlung":  # Third page: recommendations by profile
+    st.title("Investitionsempfehlung")
     st.write("Empfohlene Portfolio-Zusammensetzung basierend auf deinem Profil.")
     
-    # list of valid asset classes (if you need it elsewhere)
     Asset_Klassen = ["Einkommen", "Defensiv", "Konservativ", "Ausgewogen", "Wachstum", "Aktien"]
     
     # get the determined profile from session state
     asset_class = st.session_state.get("Anlagetyp", "Unbekannt")
-    st.write(f"Your determined asset class: **{asset_class}**")
+    st.write(f"Die von dir bestimmte Anlageklasse: **{asset_class}**")
     
     # mapping of recommended allocations
     recommendations = {
@@ -176,7 +174,7 @@ elif selected == "Recommendation":  # Third page: recommendations by profile
 
     st.info("Hinweis: Diese Empfehlung ist generisch und ersetzt keine individuelle Anlageberatung.")
 
-elif selected == "Obligationen Search":  # Vierte Seite: Obligationen anzeigen, eine Datenbank erstellt mittels Excel, aktuelle Obligationen Daten wurden von der Webpage von Six (https://www.six-group.com/de/market-data/bonds/bond-explorer.html) heruntergeladen und als Datenbank in das Projekt implementiert. 
+elif selected == "Obligationen Suche":  # Vierte Seite: Obligationen anzeigen, eine Datenbank erstellt mittels Excel, aktuelle Obligationen Daten wurden von der Webpage von Six (https://www.six-group.com/de/market-data/bonds/bond-explorer.html) heruntergeladen und als Datenbank in das Projekt implementiert. 
     st.title("Obligationen Search")
     st.write("Aktuelle Obligationen auf dem Markt. Die Daten werden von SIX zur Verfügung gestellt.")
 
@@ -195,7 +193,7 @@ elif selected == "Obligationen Search":  # Vierte Seite: Obligationen anzeigen, 
         st.error(f"Fehler beim Laden der Datei: {e}")
 
     
-elif selected == "Stock Search":  # Fünfte Seite: Aktien suchen und Kursverlauf anzeigen
+elif selected == "Aktien Suche":  # Fünfte Seite: Aktien suchen und Kursverlauf anzeigen
     st.title("Stock Search")
 
     API_KEY_FINNHUB = "cvt9u2pr01qhup0v5oa0cvt9u2pr01qhup0v5oag"
