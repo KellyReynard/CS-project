@@ -10,6 +10,9 @@ import yfinance as yf # mit Yahoo können Finanzdaten bezogen bzw. abgerufen wer
 from sklearn.preprocessing import PolynomialFeatures # Dient zur Erzeugung von zusätzlichen Merkmalen für polynomielle Regressionen
 from sklearn.linear_model import LinearRegression # wird importiert um lineare Regressionsanalysen durchzuführen
 from streamlit_autorefresh import st_autorefresh # Wird importiert um die Seite "News" alle 60 Sekunden neu zu laden
+from sklearn.model_selection import train_test_split # train_test_split hilft dabei, die Daten in Trainings- und Testdaten zu unterteilen
+import matplotlib.pyplot as plt # matplotlib wird für die Visualisierung (Plotten) verwendet
+from datetime import datetime # datetime wird benötigt, um mit Datumswerten zu arbeiten
 
 
 # Persönliche API-Schlüssel für den Zugang zu den Finanzdaten von den Datenanbieter
@@ -53,7 +56,7 @@ if selected == "Risk Profile":# Zweite Seite: Hier werden Fragen aufgelistet, um
     st.plotly_chart(fig)
 
     #hier dann die Frage 4, wie sich die Person fühlt, bei so einem Kursrückgang
-    loss = st.radio("Wie fühlst du dich bei finanziellen Verlusten?", 
+    loss_feeling = st.radio("Wie fühlst du dich bei finanziellen Verlusten?", 
                             options=["Kaum berührt", "Waren mir unangenehm", "Unangenehm und Befürchtung alles zu verlieren", "Keine Aussage trifft zu"])
 
     # Frage 5: Wie viel Geld möchte man investieren?
@@ -80,27 +83,27 @@ if selected == "Risk Profile":# Zweite Seite: Hier werden Fragen aufgelistet, um
     x_risiko = np.linspace(0, 100, 6)
     y_return = [1, 2.5, 4, 6.5, 9, 12]
     Vermögens_Klassen = ["Einkommen", "Defensiv", "Konservativ", "Ausgewogen", "Wachstum", "Aktien"]
-    Vermögens_Positionen = {x: (x_risiko[i], y_return[i]) for i, x in enumerate(asset_classes)}
+    Vermögens_Positionen = {x: (x_risiko[i], y_return[i]) for i, x in enumerate(Vermögens_Klassen)}
 
-    figure_risiko_return = px.line(x=x_risk, y=y_return, labels={"x": "Risiko", "y": "Rendite"}, title="Risikoprofil und Anlagetypen")
+    figure_risiko_return = px.line(x=x_risiko, y=y_return, labels={"x": "Risiko", "y": "Rendite"}, title="Risikoprofil und Anlagetypen")
     for item in Vermögens_Klassen:
         x_pos, y_pos = Vermögens_Positionen[item]
         figure_risiko_return.add_scatter(x=[x_pos], y=[y_pos], mode="markers+text", text=[item], textposition="top center", marker=dict(size=8, color="blue"))
 
-    selected_x, selected_y = Vermögens_Positionen[Vermögens_Klassen]
+    selected_x, selected_y = Vermögens_Positionen[asset_class]
     figure_risiko_return.add_scatter(x=[selected_x], y=[selected_y], mode="markers+text", 
                                 textposition="top center", marker=dict(size=12, color="red", line=dict(width=2, color="black")))
 
     st.plotly_chart(figure_risiko_return)
-    st.write(f"**Basierend auf deinen Antworten ist dein Anlagetyp:** {Vermögens_Klassen}")
-    st.session_state["Vermögens_Klassen"] = Vermögens_Klassen
+    st.write(f"**Basierend auf deinen Antworten ist dein Anlagetyp:** {asset_class}")
+    st.session_state["Anlagetyp"] = asset_class
     
 elif selected == "Recommendation":# Dritte Seite: Empfehlungen je nach Profil
     st.title("Investment Recommendation")
     st.write("Empfohlene Portfolio-Zusammensetzung basierend auf deinem Profil.")
 
-    asset_class = st.session_state.get("Vermögens_Klassen", "Unbekannt")
-    st.write(f"Dein ermittelter Anlagetyp: **{Vermögens_Klassen}**")
+    asset_class = st.session_state.get("Anlagetyp", "Unbekannt")
+    st.write(f"Dein ermittelter Anlagetyp: **{asset_class}**")
     recommendations = {    # Definition der empfohlenen Verteilung je nach Anlagetyp
         "Einkommen": {"Aktien": 0.0, "Obligationen": 0.9, "Cash": 0.1},
         "Defensiv": {"Aktien": 0.25, "Obligationen": 0.75, "Cash": 0.1},
@@ -111,7 +114,7 @@ elif selected == "Recommendation":# Dritte Seite: Empfehlungen je nach Profil
     }
 
     if Vermögens_Klassen in recommendations:
-        dist = recommendations[Vermögens_Klassen]
+        dist = recommendations[asset_class]
         df_dist = pd.DataFrame.from_dict(dist, orient='index', columns=['Anteil']).reset_index().rename(columns={"index": "Assetklasse"})
         fig_rec = px.pie(df_dist, names='Assetklasse', values='Anteil', title='Empfohlene Portfolio-Zusammensetzung')
         st.plotly_chart(fig_rec)
@@ -197,97 +200,135 @@ elif selected == "Stock Search":  # Fünfte Seite: Aktien suchen und Kursverlauf
                 df_finnhub["period"] = pd.to_datetime(df_finnhub["period"])
                 df_finnhub = df_finnhub.sort_values("period", ascending=False)
 
+
                 st.write("Die neuesten Empfehlungen respektive Analysteneinschätzungen zu dieser Aktie")
-                st.write(f"🟢 Buy: {df_finnhub.iloc[0]['buy']}
-                🟡 Hold: {df_finnhub.iloc[0]['hold']} 
-                🔴 Sell: {df_finnhub.iloc[0]['sell']}")
+                st.write(f"🟢 Buy: {df_finnhub.iloc[0]['buy']}")
+                st.write(f"🟡 Hold: {df_finnhub.iloc[0]['hold']}")
+                st.write(f"🔴 Sell: {df_finnhub.iloc[0]['sell']}")
+
                 
             else:
                 st.info("Keine Analystendaten gefunden.") #wurde von ChatGPT empfohlen, falls keine Analystenempfehlugen für die eingegeben Aktien von der API abgerufen werden können
 
-            # ---------- 🔥 Prognose-Modul 🔥 ----------
-            st.subheader("🔮 Preisvorhersage mit Polynomial Regression")
-
-            stock_data = yf.download(ticker, start='2015-01-01', end='2025-04-25')
-
-            if stock_data.empty:
-                st.write("Keine historischen Daten gefunden.")
-            else:
-                stock_data = stock_data[['Close']]
-                stock_data['Days'] = range(len(stock_data))
-
-                X = stock_data[['Days']]
-                y = stock_data['Close']
-
-                # Polynomial Features (Grad 3)
-                poly = PolynomialFeatures(degree=3)
-                X_poly = poly.fit_transform(X)
-
-                model = LinearRegression()
-                model.fit(X_poly, y)
-
-                # Vorhersage für morgen
-                tomorrow = [[len(stock_data)]]
-                tomorrow_poly = poly.transform(tomorrow)
-                prediction = float(model.predict(tomorrow_poly)[0])
-
-                st.write(f"Aktueller Schlusskurs: {round(stock_data['Close'].iloc[-1], 2)}")
-                st.write(f"📈 Prognostizierter Kurs für morgen: **{round(prediction, 2)}**")
-
-                # Chart: Kursverlauf + Prognosepunkt
-                st.subheader("📊 Kursverlauf mit Prognosepunkt")
-                forecast_df = stock_data.copy()
-                forecast_df.loc[forecast_df.index[-1] + pd.Timedelta(days=1)] = [prediction, len(forecast_df)]
-                st.line_chart(forecast_df['Close'])
-
-        except Exception as e:
-            st.error(f"Fehler: {e}")
+                        
+            # Der Titel der Web-App wird hier festgelegt
+            st.title("Aktienkurs-Vorhersage mit Linearer Regression")
             
+            # Benutzer kann hier den Ticker der Aktie eingeben (z.B. UBS für UBS, NESN.SW für Nestle)
+            ticker = st.text_input("Gib einen Aktien-Ticker ein (z.B. UBS, NESN.SW, ZURN.SW)", "NESN.SW")
+            
+            # Daten von Yahoo Finance herunterladen. Wir wählen den Zeitraum von 2015 bis Mai 2025
+            start_date = "2015-01-01"  # Beginn des Zeitraums
+            end_date = "2025-05-01"    # Ende des Zeitraums
+            data = yf.download(ticker, start=start_date, end=end_date)
+            
+            # Prüfen, ob Daten für den angegebenen Ticker gefunden wurden
+            if data.empty:
+                # Wenn keine Daten gefunden wurden, wird eine Fehlermeldung angezeigt
+                st.error(f"Keine Daten für das Ticker-Symbol '{ticker}' gefunden. Bitte überprüfe den Ticker.")
+            else:
+                # Um die Daten in ein besser lesbares Format zu bringen, fügen wir eine neue Spalte mit dem Datum hinzu
+                data["Date"] = data.index
+                # Um das Datum als numerischen Wert zu verwenden, wandeln wir es in eine Ordinalzahl um. (Dies wurde mit Hilfe von ChatPGT herausgefunden)
+                data["Date_ordinal"] = pd.to_datetime(data["Date"]).map(pd.Timestamp.toordinal)
+            
+                # X ist die Eingabe für die Grafik: Das ist die "Date_ordinal"-Spalte, die die Zeit darstellt
+                X = data[["Date_ordinal"]]
+                # y ist das Ziel, also die "Close"-Preise, also der Schlusskurs der Aktie
+                y = data["Close"]
+            
+                # Wir teilen die Daten in Trainingsdaten (80%) und Testdaten (20%) auf. (Dies wurde mit Hilfe von ChatPGT herausgefunden)
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+                
+                # Ein lineares Regressionsmodell wird erstellt, um die Vorhersage durchzuführen
+                model = LinearRegression()
+                # Das Modell wird mit den Trainingsdaten trainiert
+                model.fit(X_train, y_train)
+            
+                # Wir nutzen das Modell, um Vorhersagen für den gesamten Zeitraum zu treffen  (Dies wurde mit Hilfe von ChatPGT herausgefunden)
+                data["Prediction"] = model.predict(X)
+            
+                # Visualisierung: Erstellen eines Diagramms (Plot)
+                fig, ax = plt.subplots(figsize=(10, 6))  # Die Größe des Plots ist 10x6 Zoll
+                # Echte Aktienkurse werden im Diagramm angezeigt
+                ax.plot(data["Date"], y, label="Echte Kurse")
+                # Die Vorhersagen des Modells werden ebenfalls angezeigt (mit gestrichelter Linie)
+                ax.plot(data["Date"], data["Prediction"], label="Vorhergesagt", linestyle="--")
+                # Achsenbeschriftungen hinzufügen
+                ax.set_xlabel("Datum")
+                ax.set_ylabel("Kurs")
+                # Titel des Diagramms
+                ax.set_title(f"Aktienkurs Vorhersage für {ticker} (2020-2025)")
+                # Legende anzeigen, um die Linien im Diagramm zu erklären
+                ax.legend()
+            
+                # Setze die Achsenlimits, um den Zeitraum von 2020 bis 2025 anzuzeigen
+                ax.set_xlim([data["Date"].iloc[0], data["Date"].iloc[-1]])
+            
+                # Das Diagramm wird in der Web-App angezeigt
+                st.pyplot(fig)
+            
+                # Prognose für ein zukünftiges Datum, z.B. 31. Dezember 2025
+                future_date = datetime(2025, 12, 31)  # Das zukünftige Datum, das wir vorhersagen wollen
+                # Um das Datum als numerischen Wert (Ordinalzahl) zu bekommen, konvertieren wir es
+                future_ordinal = pd.Timestamp(future_date).toordinal()
+            
+                # Das Modell wird verwendet, um die Vorhersage für dieses zukünftige Datum zu berechnen (Dies wurde mit Hilfe von ChatPGT herausgefunden)
+                future_prediction_array = model.predict([[future_ordinal]])
+                # Wir extrahieren die Vorhersage als Fließkommazahl
+                future_prediction = float(future_prediction_array[0])
+            
+                # Die prognostizierten Aktienkurse für das zukünftige Datum werden angezeigt
+                st.subheader("Prognose")
+                st.write(f"Der vorhergesagte Kurs für {ticker} am {future_date.strftime('%d.%m.%Y')} beträgt **{future_prediction:.2f} USD**.")
+
+
 elif selected == "News":
+    try:
+        st.title("Börsennachrichten – Echtzeit")
+        st.caption("Die Seite aktualisiert sich automatisch alle 60 Sekunden.")
+        st_autorefresh(interval=60 * 1000, key="news_refresh")
 
+        symbol = st.text_input("📈 Gib ein Ticker-Symbol ein (z.B. AAPL, TSLA, IBM):")
 
-    st.title("Börsennachrichten – Echtzeit")
-    st.caption("Die Seite aktualisiert sich automatisch alle 60 Sekunden.")
-    st_autorefresh(interval=60 * 1000, key="news_refresh")
+        def get_news(ticker_symbol):
+            try:
+                ticker = yf.Ticker(ticker_symbol)
+                news_items = ticker.news
+                news_parsed = []
 
-    # Eingabefeld für Ticker
-    symbol = st.text_input("📈 Gib ein Ticker-Symbol ein (z.B. AAPL, TSLA, IBM,):")
+                for item in news_items:
+                    if "title" in item and "provider" in item and "link" in item:
+                        news_parsed.append({
+                            "Titel": item.get("title", "Unbekannt"),
+                            "Quelle": item.get("provider", {}).get("displayName", "Unbekannt"),
+                            "Veröffentlicht am": item.get("providerPublishTime", "Unbekannt"),
+                            "Link": item.get("link", "#")
+                        })
 
-    def get_news(ticker_symbol):
-        try:
-            ticker = yf.Ticker(ticker_symbol)
-            news_items = ticker.news
-            news_parsed = []
+                return news_parsed
+            except Exception as e:
+                st.error(f"Fehler beim Abrufen der Nachrichten: {e}")
+                return []
 
-            for item in news_items:
-                content = item.get("content")
-                if content:
-                    news_parsed.append({
-                        "Titel": content.get("title", "Unbekannt"),
-                        "Quelle": content.get("provider", {}).get("displayName", "Unbekannt"),
-                        "Veröffentlicht am": content.get("pubDate", "Unbekannt"),
-                        "Link": content.get("clickThroughUrl", {}).get("url", "#")
-                    })
-            return news_parsed
-        except Exception:
-            return []
+        if symbol:
+            news_data = get_news(symbol)
 
-    #  Nur ausführen, wenn ein Symbol eingegeben wurde
-    if symbol:
-        news_data = get_news(symbol)
+            if not news_data:
+                st.warning(f"⚠️ Keine Nachrichten für `{symbol}` gefunden. Zeige allgemeine Marktnachrichten.")
+                news_data = get_news("^GSPC")
 
-        if not news_data:
-            st.warning(f"⚠️ Keine Nachrichten für `{symbol}` gefunden. Zeige allgemeine Marktnachrichten.")
-            news_data = get_news("^GSPC")  # Fallback: Markt-News S&P500 
+            if news_data:
+                df_news = pd.DataFrame(news_data)
+                df_news["Veröffentlicht am"] = pd.to_datetime(df_news["Veröffentlicht am"], unit="s", errors="coerce")
+                df_news["Link"] = df_news["Link"].apply(lambda url: f'<a href="{url}" target="_blank">Öffnen</a>')
 
-        if news_data:
-            df_news = pd.DataFrame(news_data)
-            df_news["Link"] = df_news["Link"].apply(lambda url: f'<a href="{url}" target="_blank"> Öffnen</a>')
-            df_news["Veröffentlicht am"] = pd.to_datetime(df_news["Veröffentlicht am"], errors="coerce")
-
-            st.markdown("### Aktuelle Nachrichten:")
-            st.write(df_news.to_html(escape=False, index=False), unsafe_allow_html=True)
+                st.markdown("### Aktuelle Nachrichten:")
+                st.write(df_news.to_html(escape=False, index=False), unsafe_allow_html=True)
+            else:
+                st.info("Keine aktuellen Nachrichten verfügbar.")
         else:
-            st.info("Keine aktuellen Nachrichten verfügbar.")
-    else:
-        st.info("Bitte gib ein Ticker-Symbol ein, um Nachrichten zu sehen.")
+            st.info("Bitte gib ein Ticker-Symbol ein, um Nachrichten zu sehen.")
+
+    except Exception as e:
+        st.error(f"Fehler beim Laden der Nachrichten-Seite: {e}")
