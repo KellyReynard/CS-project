@@ -13,7 +13,8 @@ from streamlit_autorefresh import st_autorefresh # Wird importiert um die Seite 
 from sklearn.model_selection import train_test_split # train_test_split hilft dabei, die Daten in Trainings- und Testdaten zu unterteilen
 import matplotlib.pyplot as plt # matplotlib wird für die Visualisierung (Plotten) verwendet
 from datetime import datetime # datetime wird benötigt, um mit Datumswerten zu arbeiten
-
+import openpyxl # openpyxl wird benötigt, um Excel-Dateien zu lesen
+import feedparser # feedparser wird verwendet, um RSS-Feeds zu parsen
 
 # Persönliche API-Schlüssel für den Zugang zu den Finanzdaten von den Datenanbieter
 API_KEY_TWELVEDATA = "fa6409603f0f4d2d9413c1b0a01b68ed"
@@ -33,6 +34,41 @@ with st.sidebar: # Erstellen des Navigationsmenüs in der linken Seitenleiste
 if selected == "Overview": # Erste Seite: Übersicht
     st.title("The CapWise App")
     st.write("Willkommen zur CapWise App! Die App hilft dir dabei dein Risikprofil zu bestimmen und dein Geld richtig anzulegen.")
+    st.title("Willkommen bei The Finance App")
+    st.video("https://www.youtube.com/watch?v=DEIN_VIDEO_ID") # Hier kannst du den Link zu deinem Video einfügen
+
+
+    st.markdown("""
+    ### 💬 Wer sind wir?
+
+    Wir sind ein Team von Studierenden, das eine moderne, benutzerfreundliche Investment-App entwickelt hat.
+
+    ---
+
+    ### 🎯 Unser Ziel
+
+    Wir wollen es einfacher machen, in die Welt der Investitionen einzusteigen.  
+    *Du gibst dein Risikoprofil an, wir geben dir klare Empfehlungen.*
+
+    ---
+
+    ### Was findest du in unserer App?
+
+    - 📊 *Risikoprofilanalyse* – Wir analysieren deine Risikobereitschaft
+    - 💡 *Empfohlene Portfolio-Zusammensetzung* – angepasst an dich
+    - 🔍 *Obligationenübersicht* – mit Laufzeiten, Zinssätzen und Risiken
+    - 📈 *Aktienrecherche mit Prognose* – inklusive Kursverlauf und Machine-Learning-Forecast
+    - 📰 *Live-Finanznachrichten* – für jedes Unternehmen, z. B. Apple, Tesla oder UBS
+
+    ---
+
+    Diese Anwendung richtet sich an:
+    - Einsteiger
+    - Studierende
+    - Finanzinteressierte
+
+    """)
+
 if selected == "Risk Profile":# Zweite Seite: Hier werden Fragen aufgelistet, um das optimale Risikprofil zu ermitteln
     st.title("Risk Profile")
     st.write("Hier wird dein Risikoprofil anhand einiger Fragen bestimmt.")
@@ -73,20 +109,21 @@ if selected == "Risk Profile":# Zweite Seite: Hier werden Fragen aufgelistet, um
     elif invest_horizon >= 10 and risk_behavior <= 70 and loss_feeling in ["Kaum berührt", "Waren mir unangenehm"]:
         asset_class = "Ausgewogen"
     elif invest_horizon >= 15 and risk_behavior >= 70 and loss_feeling == "Kaum berührt" and invest_amount == ">500 Tausend":
-        asset_class = "Aktien"
+        asset_class = "Aktien"    
     elif invest_horizon >= 10 and risk_behavior >= 60 and loss_feeling in ["Kaum berührt", "Waren mir unangenehm"]:
         asset_class = "Wachstum"
+
     else:
         asset_class = "Ausgewogen"  # Standardtyp, wenn keine eindeutige Kategorie passt
 
     # Zeichnen der Risiko-Rendite-Kurve mit Markierung des entsprechenden Nutzerprofils
     x_risiko = np.linspace(0, 100, 6)
     y_return = [1, 2.5, 4, 6.5, 9, 12]
-    Vermögens_Klassen = ["Einkommen", "Defensiv", "Konservativ", "Ausgewogen", "Wachstum", "Aktien"]
-    Vermögens_Positionen = {x: (x_risiko[i], y_return[i]) for i, x in enumerate(Vermögens_Klassen)}
+    Asset_Klassen = ["Einkommen", "Defensiv", "Konservativ", "Ausgewogen", "Wachstum", "Aktien"]
+    Vermögens_Positionen = {x: (x_risiko[i], y_return[i]) for i, x in enumerate(Asset_Klassen)}
 
     figure_risiko_return = px.line(x=x_risiko, y=y_return, labels={"x": "Risiko", "y": "Rendite"}, title="Risikoprofil und Anlagetypen")
-    for item in Vermögens_Klassen:
+    for item in Asset_Klassen:
         x_pos, y_pos = Vermögens_Positionen[item]
         figure_risiko_return.add_scatter(x=[x_pos], y=[y_pos], mode="markers+text", text=[item], textposition="top center", marker=dict(size=8, color="blue"))
 
@@ -98,27 +135,45 @@ if selected == "Risk Profile":# Zweite Seite: Hier werden Fragen aufgelistet, um
     st.write(f"**Basierend auf deinen Antworten ist dein Anlagetyp:** {asset_class}")
     st.session_state["Anlagetyp"] = asset_class
     
-elif selected == "Recommendation":# Dritte Seite: Empfehlungen je nach Profil
+elif selected == "Recommendation":  # Third page: recommendations by profile
     st.title("Investment Recommendation")
     st.write("Empfohlene Portfolio-Zusammensetzung basierend auf deinem Profil.")
-
+    
+    # list of valid asset classes (if you need it elsewhere)
+    Asset_Klassen = ["Einkommen", "Defensiv", "Konservativ", "Ausgewogen", "Wachstum", "Aktien"]
+    
+    # get the determined profile from session state
     asset_class = st.session_state.get("Anlagetyp", "Unbekannt")
-    st.write(f"Dein ermittelter Anlagetyp: **{asset_class}**")
-    recommendations = {    # Definition der empfohlenen Verteilung je nach Anlagetyp
-        "Einkommen": {"Aktien": 0.0, "Obligationen": 0.9, "Cash": 0.1},
-        "Defensiv": {"Aktien": 0.25, "Obligationen": 0.75, "Cash": 0.1},
+    st.write(f"Your determined asset class: **{asset_class}**")
+    
+    # mapping of recommended allocations
+    recommendations = {
+        "Einkommen":   {"Aktien": 0.0,  "Obligationen": 0.9,  "Cash": 0.1},
+        "Defensiv":    {"Aktien": 0.25, "Obligationen": 0.75, "Cash": 0.1},
         "Konservativ": {"Aktien": 0.35, "Obligationen": 0.55, "Cash": 0.1},
-        "Ausgewogen": {"Aktien": 0.55, "Obligationen": 0.35, "Cash": 0.1},
-        "Wachstum": {"Aktien": 0.75, "Obligationen": 0.15, "Cash": 0.1},
-        "Aktien": {"Aktien": 0.9, "Obligationen": 0.0, "Cash": 0.1}
+        "Ausgewogen":  {"Aktien": 0.55, "Obligationen": 0.35, "Cash": 0.1},
+        "Wachstum":    {"Aktien": 0.75, "Obligationen": 0.15, "Cash": 0.1},
+        "Aktien":      {"Aktien": 0.9,  "Obligationen": 0.0,  "Cash": 0.1}
     }
 
-    if Vermögens_Klassen in recommendations:
+    # check the string key, not the list
+    if asset_class in recommendations:
         dist = recommendations[asset_class]
-        df_dist = pd.DataFrame.from_dict(dist, orient='index', columns=['Anteil']).reset_index().rename(columns={"index": "Assetklasse"})
-        fig_rec = px.pie(df_dist, names='Assetklasse', values='Anteil', title='Empfohlene Portfolio-Zusammensetzung')
+        df_dist = (
+            pd.DataFrame.from_dict(dist, orient="index", columns=["Anteil"])
+              .reset_index()
+              .rename(columns={"index": "Assetklasse"})
+        )
+        fig_rec = px.pie(
+            df_dist,
+            names="Assetklasse",
+            values="Anteil",
+            title="Empfohlene Portfolio-Zusammensetzung"
+        )
         st.plotly_chart(fig_rec)
-    
+    else:
+        st.warning("Asset class not found in recommendations. Bitte überprüfe deinen Anlagetyp.")
+
     st.info("Hinweis: Diese Empfehlung ist generisch und ersetzt keine individuelle Anlageberatung.")
 
 elif selected == "Obligationen Search":  # Vierte Seite: Obligationen anzeigen, eine Datenbank erstellt mittels Excel, aktuelle Obligationen Daten wurden von der Webpage von Six (https://www.six-group.com/de/market-data/bonds/bond-explorer.html) heruntergeladen und als Datenbank in das Projekt implementiert. 
@@ -137,8 +192,7 @@ elif selected == "Obligationen Search":  # Vierte Seite: Obligationen anzeigen, 
         st.dataframe(df_bonds)
 
     except Exception as e:
-        st.error(f"Fehler beim Laden der Datei: {e}") #wurde von ChatGPT empfohlen, falls der Code nicht funktioniert bzw. die Datei nicht geladen werden kann, dass dies so angegeben wird
-
+        st.error(f"Fehler beim Laden der Datei: {e}")
 
     
 elif selected == "Stock Search":  # Fünfte Seite: Aktien suchen und Kursverlauf anzeigen
@@ -149,16 +203,21 @@ elif selected == "Stock Search":  # Fünfte Seite: Aktien suchen und Kursverlauf
     ticker = st.text_input("Gib das Aktien-Ticker-Symbol ein (z.B. AAPL, IBM):")
     selected_period = st.selectbox(
         "Wähle den Zeitraum:",
-        options=["7 Tage", "1 Monat", "3 Monate", "6 Monate", "1 Jahr"],
+        options=["1 Tag","7 Tage", "1 Monat", "3 Monate", "6 Monate", "1 Jahr", "2 Jahr", "5 Jahr", "10 Jahr"],
         index=1
     )
 
     period_to_outputsize = {
+        "1 Tag": 1,
         "7 Tage": 7,
         "1 Monat": 30,
         "3 Monate": 90,
         "6 Monate": 180,
-        "1 Jahr": 365
+        "1 Jahr": 365,
+        "2 Jahr": 730,
+        "5 Jahr": 1825,
+        "10 Jahr": 3650,
+        
     }
     outputsize = period_to_outputsize[selected_period]
 
@@ -214,119 +273,130 @@ elif selected == "Stock Search":  # Fünfte Seite: Aktien suchen und Kursverlauf
             # Der Titel der Web-App wird hier festgelegt
             st.title("Aktienkurs-Vorhersage mit Linearer Regression")
             
-            # Benutzer kann hier den Ticker der Aktie eingeben (z.B. UBS für UBS, NESN.SW für Nestle)
-            ticker = st.text_input("Gib einen Aktien-Ticker ein (z.B. UBS, NESN.SW, ZURN.SW)", "NESN.SW")
-            
-            # Daten von Yahoo Finance herunterladen. Wir wählen den Zeitraum von 2015 bis Mai 2025
-            start_date = "2015-01-01"  # Beginn des Zeitraums
-            end_date = "2025-05-01"    # Ende des Zeitraums
+               
+            # 2. Download history
+            start_date = "2015-01-01"
+            end_date   = "2025-05-01"
             data = yf.download(ticker, start=start_date, end=end_date)
             
-            # Prüfen, ob Daten für den angegebenen Ticker gefunden wurden
             if data.empty:
-                # Wenn keine Daten gefunden wurden, wird eine Fehlermeldung angezeigt
                 st.error(f"Keine Daten für das Ticker-Symbol '{ticker}' gefunden. Bitte überprüfe den Ticker.")
             else:
-                # Um die Daten in ein besser lesbares Format zu bringen, fügen wir eine neue Spalte mit dem Datum hinzu
                 data["Date"] = data.index
-                # Um das Datum als numerischen Wert zu verwenden, wandeln wir es in eine Ordinalzahl um. (Dies wurde mit Hilfe von ChatPGT herausgefunden)
                 data["Date_ordinal"] = pd.to_datetime(data["Date"]).map(pd.Timestamp.toordinal)
-            
-                # X ist die Eingabe für die Grafik: Das ist die "Date_ordinal"-Spalte, die die Zeit darstellt
-                X = data[["Date_ordinal"]]
-                # y ist das Ziel, also die "Close"-Preise, also der Schlusskurs der Aktie
-                y = data["Close"]
-            
-                # Wir teilen die Daten in Trainingsdaten (80%) und Testdaten (20%) auf. (Dies wurde mit Hilfe von ChatPGT herausgefunden)
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
                 
-                # Ein lineares Regressionsmodell wird erstellt, um die Vorhersage durchzuführen
-                model = LinearRegression()
-                # Das Modell wird mit den Trainingsdaten trainiert
-                model.fit(X_train, y_train)
-            
-                # Wir nutzen das Modell, um Vorhersagen für den gesamten Zeitraum zu treffen  (Dies wurde mit Hilfe von ChatPGT herausgefunden)
+                # 3. Train/test split and model
+                X = data[["Date_ordinal"]]
+                y = data["Close"]
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+                model = LinearRegression().fit(X_train, y_train)
+                
+                # 4. In-sample prediction
                 data["Prediction"] = model.predict(X)
-            
-                # Visualisierung: Erstellen eines Diagramms (Plot)
-                fig, ax = plt.subplots(figsize=(10, 6))  # Die Größe des Plots ist 10x6 Zoll
-                # Echte Aktienkurse werden im Diagramm angezeigt
-                ax.plot(data["Date"], y, label="Echte Kurse")
-                # Die Vorhersagen des Modells werden ebenfalls angezeigt (mit gestrichelter Linie)
-                ax.plot(data["Date"], data["Prediction"], label="Vorhergesagt", linestyle="--")
-                # Achsenbeschriftungen hinzufügen
+                
+                # 5. Generate 2 years of future dates
+                last_date = data["Date"].max()
+                future_dates = pd.date_range(
+                    start=last_date + pd.Timedelta(days=1),
+                    end=last_date + pd.DateOffset(years=2),
+                    freq="D"
+                )
+                future_ordinals = future_dates.map(pd.Timestamp.toordinal).to_numpy().reshape(-1, 1)
+                future_preds = model.predict(future_ordinals)
+                
+                # 6. Plot actual, in-sample and future forecasts
+                fig, ax = plt.subplots(figsize=(10, 6))
+                ax.plot(data["Date"], y,           label="Echte Kurse")
+                ax.plot(data["Date"], data["Prediction"], linestyle="--", label="Vorhersage (in-sample)")
+                ax.plot(future_dates, future_preds, linestyle="--", label="Vorhersage (nächste 2 Jahre)")
                 ax.set_xlabel("Datum")
                 ax.set_ylabel("Kurs")
-                # Titel des Diagramms
-                ax.set_title(f"Aktienkurs Vorhersage für {ticker} (2020-2025)")
-                # Legende anzeigen, um die Linien im Diagramm zu erklären
+                ax.set_title(f"Aktienkurs-Vorhersage für {ticker} bis {future_dates[-1].strftime('%Y-%m-%d')}")
                 ax.legend()
-            
-                # Setze die Achsenlimits, um den Zeitraum von 2020 bis 2025 anzuzeigen
-                ax.set_xlim([data["Date"].iloc[0], data["Date"].iloc[-1]])
-            
-                # Das Diagramm wird in der Web-App angezeigt
+                ax.set_xlim([data["Date"].iloc[0], future_dates[-1]])
+                
                 st.pyplot(fig)
-            
-                # Prognose für ein zukünftiges Datum, z.B. 31. Dezember 2025
-                future_date = datetime(2025, 12, 31)  # Das zukünftige Datum, das wir vorhersagen wollen
-                # Um das Datum als numerischen Wert (Ordinalzahl) zu bekommen, konvertieren wir es
-                future_ordinal = pd.Timestamp(future_date).toordinal()
-            
-                # Das Modell wird verwendet, um die Vorhersage für dieses zukünftige Datum zu berechnen (Dies wurde mit Hilfe von ChatPGT herausgefunden)
-                future_prediction_array = model.predict([[future_ordinal]])
-                # Wir extrahieren die Vorhersage als Fließkommazahl
-                future_prediction = float(future_prediction_array[0])
-            
-                # Die prognostizierten Aktienkurse für das zukünftige Datum werden angezeigt
-                st.subheader("Prognose")
-                st.write(f"Der vorhergesagte Kurs für {ticker} am {future_date.strftime('%d.%m.%Y')} beträgt **{future_prediction:.2f} USD**.")
-
+                
+                # 7. Single-point forecast remains optional
+                future_date = datetime(2025, 12, 31)
+                future_ord = pd.Timestamp(future_date).toordinal()
+                single_pred = float(model.predict([[future_ord]])[0])
+                st.subheader("Prognose für 31.12.2025")
+                st.write(f"Vorhergesagter Kurs am {future_date.strftime('%d.%m.%Y')}: **{single_pred:.2f} USD**")
+        except Exception as e:
+            st.error(f"Fehler beim Abrufen der Daten: {e}")     
 
 elif selected == "News":
+    
     try:
         st.title("Börsennachrichten – Echtzeit")
         st.caption("Die Seite aktualisiert sich automatisch alle 60 Sekunden.")
         st_autorefresh(interval=60 * 1000, key="news_refresh")
 
-        symbol = st.text_input("📈 Gib ein Ticker-Symbol ein (z.B. AAPL, TSLA, IBM):")
+        symbol = st.text_input("Gib ein Ticker-Symbol ein (z.B. AAPL, TSLA, IBM):")
 
-        def get_news(ticker_symbol):
+        def get_yf_news(ticker_symbol):
+            """Fetch news via yfinance (may be empty)."""
             try:
                 ticker = yf.Ticker(ticker_symbol)
-                news_items = ticker.news
-                news_parsed = []
-
-                for item in news_items:
+                items = ticker.news or []
+                parsed = []
+                for item in items:
                     if "title" in item and "provider" in item and "link" in item:
-                        news_parsed.append({
-                            "Titel": item.get("title", "Unbekannt"),
-                            "Quelle": item.get("provider", {}).get("displayName", "Unbekannt"),
-                            "Veröffentlicht am": item.get("providerPublishTime", "Unbekannt"),
-                            "Link": item.get("link", "#")
+                        parsed.append({
+                            "Titel": item["title"],
+                            "Quelle": item["provider"].get("displayName", "Unbekannt"),
+                            "Veröffentlicht am": item.get("providerPublishTime", 0),
+                            "Link": item["link"]
                         })
-
-                return news_parsed
+                return parsed
             except Exception as e:
-                st.error(f"Fehler beim Abrufen der Nachrichten: {e}")
+                st.error(f"Fehler beim Abrufen der yfinance-Nachrichten: {e}")
                 return []
 
+        def get_google_news(ticker_symbol):
+            """Fetch news from Google News RSS as fallback."""
+            # build the RSS URL (German edition)
+            rss_url = (
+                "https://news.google.com/rss/search?"
+                f"q={ticker_symbol}%20Aktien&hl=de&gl=DE&ceid=DE:de"
+            )
+            feed = feedparser.parse(rss_url)  # Feedparser returns entries in date order :contentReference[oaicite:0]{index=0}
+            parsed = []
+            for entry in feed.entries[:10]:
+                parsed.append({
+                    "Titel": entry.title,
+                    "Quelle": entry.get("source", {}).get("title", "Google News"),
+                    "Veröffentlicht am": entry.get("published", ""),
+                    "Link": entry.link
+                })
+            return parsed
+
+        def normalize_and_display(news_list):
+            df = pd.DataFrame(news_list)
+            # try numeric timestamps first; if that fails, parse strings
+            df["Veröffentlicht am"] = pd.to_datetime(
+                df["Veröffentlicht am"], 
+                unit="s", errors="coerce"
+            ).fillna(pd.to_datetime(df["Veröffentlicht am"], errors="coerce"))
+            df.sort_values("Veröffentlicht am", ascending=False, inplace=True)
+            df = df.head(10)
+            df["Link"] = df["Link"].apply(
+                lambda url: f'<a href="{url}" target="_blank">Öffnen</a>'
+            )
+            st.markdown("### Aktuelle Nachrichten:")
+            st.write(df.to_html(escape=False, index=False), unsafe_allow_html=True)
+
         if symbol:
-            news_data = get_news(symbol)
+            news = get_yf_news(symbol)
+            if not news:
+                st.info(f"Keine yfinance-News für `{symbol}`—hole Google News RSS als Fallback.")
+                news = get_google_news(symbol)
 
-            if not news_data:
-                st.warning(f"⚠️ Keine Nachrichten für `{symbol}` gefunden. Zeige allgemeine Marktnachrichten.")
-                news_data = get_news("^GSPC")
-
-            if news_data:
-                df_news = pd.DataFrame(news_data)
-                df_news["Veröffentlicht am"] = pd.to_datetime(df_news["Veröffentlicht am"], unit="s", errors="coerce")
-                df_news["Link"] = df_news["Link"].apply(lambda url: f'<a href="{url}" target="_blank">Öffnen</a>')
-
-                st.markdown("### Aktuelle Nachrichten:")
-                st.write(df_news.to_html(escape=False, index=False), unsafe_allow_html=True)
+            if news:
+                normalize_and_display(news)
             else:
-                st.info("Keine aktuellen Nachrichten verfügbar.")
+                st.info("Auch über RSS keine Nachrichten verfügbar.")
         else:
             st.info("Bitte gib ein Ticker-Symbol ein, um Nachrichten zu sehen.")
 
