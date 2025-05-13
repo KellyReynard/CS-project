@@ -34,7 +34,7 @@ with st.sidebar: # Erstellen des Navigationsmenüs in der linken Seitenleiste
 if selected == "Übersicht": # Erste Seite: Übersicht
     st.title("The CapWise App")
     st.write("Willkommen zur CapWise App! Die App hilft dir dabei dein Risikprofil zu bestimmen und dein Geld richtig anzulegen.")
-    st.video("https://www.youtube.com/watch?v=DEIN_VIDEO_ID") # Hier kannst du den Link zu deinem Video einfügen
+    st.video("https://www.youtube.com/watch?v=K9SiRyumlzw") # Hier kannst du den Link zu deinem Video einfügen
 
 
     st.markdown("""
