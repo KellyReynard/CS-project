@@ -12,7 +12,7 @@ from sklearn.linear_model import LinearRegression # wird importiert um lineare R
 from streamlit_autorefresh import st_autorefresh # Wird importiert um die Seite "News" alle 60 Sekunden neu zu laden
 from sklearn.model_selection import train_test_split # train_test_split hilft dabei, die Daten in Trainings- und Testdaten zu unterteilen
 import matplotlib.pyplot as plt # matplotlib wird für die Visualisierung (Plotten) verwendet
-from datetime import datetime # datetime wird benötigt, um mit Datumswerten zu arbeiten
+from datetime import datetime, timedelta # datetime wird benötigt, um mit Datumswerten zu arbeiten
 import openpyxl # openpyxl wird benötigt, um Excel-Dateien zu lesen
 import feedparser # feedparser wird verwendet, um RSS-Feeds zu parsen
 
@@ -240,6 +240,8 @@ elif selected == "Aktien Suche":  # Fünfte Seite: Aktien suchen und Kursverlauf
                 df_price = df_price.astype(float)
                 df_price.sort_index(inplace=True)
 
+                print(df_price.head())  # Debugging: Ausgabe der ersten Zeilen des DataFrames
+
                 fig_price = px.line(
                     df_price,
                     x=df_price.index,
@@ -274,65 +276,78 @@ elif selected == "Aktien Suche":  # Fünfte Seite: Aktien suchen und Kursverlauf
                         
             # Der Titel der Web-App wird hier festgelegt
             st.title("Aktienkurs-Vorhersage mit Linearer Regression")
+ 
             
-               
-            # 2. Download history
-            start_date = "2015-01-01"
-            end_date   = "2025-05-01"
-            data = yf.download(
-                ticker,
-                start=start_date,
-                end=end_date,
-                auto_adjust=True,
-                threads=False,
-                progress=False,
-                session=session
-            )
-            
-            if data.empty:
+            # 1. Check if ticker is empty       
+            if df_price.empty:
                 st.error(f"Keine Daten für das Ticker-Symbol '{ticker}' gefunden. Bitte überprüfe den Ticker.")
             else:
-                data["Date"] = data.index
-                data["Date_ordinal"] = pd.to_datetime(data["Date"]).map(pd.Timestamp.toordinal)
-                
-                # 3. Train/test split and model
-                X = data[["Date_ordinal"]]
-                y = data["Close"]
-                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+                            # 1) Download full history
+                start_date = "2015-01-01"
+                end_date   = datetime.today().strftime("%Y-%m-%d")
+                url_price = (
+                    f"https://api.twelvedata.com/time_series?"
+                    f"symbol={ticker}&interval=1day"
+                    f"&start_date={start_date}"
+                    f"&end_date={end_date}"
+                    f"&apikey={API_KEY_TWELVEDATA}"
+                )
+                resp = session.get(url_price)
+                js  = resp.json()
+
+                if "values" not in js:
+                    st.error(f"No data for '{ticker}'.")
+                    st.stop()
+
+                df = pd.DataFrame(js["values"])
+                df["datetime"] = pd.to_datetime(df["datetime"])
+                df.set_index("datetime", inplace=True)
+                df = df.astype(float).sort_index()  
+
+
+                # 2) Prepare regression
+                df["Date"] = df.index
+                df["Date_ordinal"] = df["Date"].map(pd.Timestamp.toordinal)
+
+                X = df[["Date_ordinal"]]
+                y = df["close"]
+                if len(df) < 2:
+                    st.warning("Not enough points for regression.")
+                    st.stop()
+
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X, y, test_size=0.2, shuffle=False
+                )
                 model = LinearRegression().fit(X_train, y_train)
-                
-                # 4. In-sample prediction
-                data["Prediction"] = model.predict(X)
-                
-                # 5. Generate 2 years of future dates
-                last_date = data["Date"].max()
+                df["Prediction"] = model.predict(X)
+
+                # 3) Future dates
+                last = df["Date"].max()
                 future_dates = pd.date_range(
-                    start=last_date + pd.Timedelta(days=1),
-                    end=last_date + pd.DateOffset(years=2),
+                    start=last + timedelta(days=1),
+                    end= last + pd.DateOffset(years=2),
                     freq="D"
                 )
-                future_ordinals = future_dates.map(pd.Timestamp.toordinal).to_numpy().reshape(-1, 1)
-                future_preds = model.predict(future_ordinals)
-                
-                # 6. Plot actual, in-sample and future forecasts
-                fig, ax = plt.subplots(figsize=(10, 6))
-                ax.plot(data["Date"], y,           label="Echte Kurse")
-                ax.plot(data["Date"], data["Prediction"], linestyle="--", label="Vorhersage (in-sample)")
-                ax.plot(future_dates, future_preds, linestyle="--", label="Vorhersage (nächste 2 Jahre)")
+                fut_ord = (
+                    future_dates.map(pd.Timestamp.toordinal)
+                                .to_numpy().reshape(-1,1)
+                )
+                future_preds = model.predict(fut_ord)
+
+                # 4) Plot everything with markers
+                fig, ax = plt.subplots(figsize=(10,6))
+                ax.plot(df["Date"], y, label="Echte Kurse")
+                ax.plot(df["Date"], df["Prediction"],
+                        linestyle="--",
+                        label="In-sample Fit")
+                ax.plot(future_dates, future_preds,
+                        linestyle="--",
+                        label="Forecast (2 Jahre)")
                 ax.set_xlabel("Datum")
-                ax.set_ylabel("Kurs")
-                ax.set_title(f"Aktienkurs-Vorhersage für {ticker} bis {future_dates[-1].strftime('%Y-%m-%d')}")
+                ax.set_ylabel("Kurs (USD)")
+                ax.set_title(f"Vorhersage für {ticker} bis {future_dates[-1].date()}")
                 ax.legend()
-                ax.set_xlim([data["Date"].iloc[0], future_dates[-1]])
-                
                 st.pyplot(fig)
-                
-                # 7. Single-point forecast remains optional
-                future_date = datetime(2025, 12, 31)
-                future_ord = pd.Timestamp(future_date).toordinal()
-                single_pred = float(model.predict([[future_ord]])[0])
-                st.subheader("Prognose für 31.12.2025")
-                st.write(f"Vorhergesagter Kurs am {future_date.strftime('%d.%m.%Y')}: **{single_pred:.2f} USD**")
         except Exception as e:
             st.error(f"Fehler beim Abrufen der Daten: {e}")     
 
