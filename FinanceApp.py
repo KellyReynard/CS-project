@@ -31,7 +31,7 @@ with st.sidebar: # Erstellen des Navigationsmenüs in der linken Seitenleiste
         menu_icon="cast",  # Icon oben links
         default_index=0  # Die erste Seite ("Overview") wird standardmäßig angezeigt
     )
-if selected == "Overview": # Erste Seite: Übersicht
+if selected == "Übersicht": # Erste Seite: Übersicht
     st.title("The CapWise App")
     st.write("Willkommen zur CapWise App! Die App hilft dir dabei dein Risikprofil zu bestimmen und dein Geld richtig anzulegen.")
     st.video("https://www.youtube.com/watch?v=DEIN_VIDEO_ID") # Hier kannst du den Link zu deinem Video einfügen
@@ -198,6 +198,10 @@ elif selected == "Aktien Suche":  # Fünfte Seite: Aktien suchen und Kursverlauf
 
     API_KEY_FINNHUB = "cvt9u2pr01qhup0v5oa0cvt9u2pr01qhup0v5oag"
 
+    session = requests.Session()
+    session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+
     ticker = st.text_input("Gib das Aktien-Ticker-Symbol ein (z.B. AAPL, IBM):")
     selected_period = st.selectbox(
         "Wähle den Zeitraum:",
@@ -275,7 +279,15 @@ elif selected == "Aktien Suche":  # Fünfte Seite: Aktien suchen und Kursverlauf
             # 2. Download history
             start_date = "2015-01-01"
             end_date   = "2025-05-01"
-            data = yf.download(ticker, start=start_date, end=end_date)
+            data = yf.download(
+                ticker,
+                start=start_date,
+                end=end_date,
+                auto_adjust=True,
+                threads=False,
+                progress=False,
+                session=session
+            )
             
             if data.empty:
                 st.error(f"Keine Daten für das Ticker-Symbol '{ticker}' gefunden. Bitte überprüfe den Ticker.")
