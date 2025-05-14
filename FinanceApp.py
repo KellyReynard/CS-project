@@ -34,7 +34,7 @@ with st.sidebar: # Erstellen des Navigationsmenüs in der linken Seitenleiste
 if selected == "Übersicht": # Erste Seite: Übersicht
     st.title("The CapWise App")
     st.write("Willkommen zur CapWise App! Die App hilft dir dabei dein Risikprofil zu bestimmen und dein Geld richtig anzulegen.")
-    st.video("https://www.youtube.com/watch?v=K9SiRyumlzw") # Hier kannst du den Link zu deinem Video einfügen
+    st.video("https://www.youtube.com/watch?v=K9SiRyumlzw") #Einfügen unseres Videos in die Applikation
 
 
     st.markdown("""
@@ -278,13 +278,14 @@ elif selected == "Aktien Suche":  # Fünfte Seite: Aktien suchen und Kursverlauf
             st.title("Aktienkurs-Vorhersage mit Linearer Regression")
  
             
-            # 1. Check if ticker is empty       
+            #1) Prüfen ob Daten vorhanden sind      
             if df_price.empty:
                 st.error(f"Keine Daten für das Ticker-Symbol '{ticker}' gefunden. Bitte überprüfe den Ticker.")
             else:
-                            # 1) Download full history
+                            #Daten werden abgerufen und gesamte Kurshistorie wird geladen
                 start_date = "2015-01-01"
                 end_date   = datetime.today().strftime("%Y-%m-%d")
+                #hier wird eine URS zur TwelveData API eingebaut, um die Kursdaten im Tagesintervall zu laden
                 url_price = (
                     f"https://api.twelvedata.com/time_series?"
                     f"symbol={ticker}&interval=1day"
@@ -294,62 +295,64 @@ elif selected == "Aktien Suche":  # Fünfte Seite: Aktien suchen und Kursverlauf
                 )
                 resp = session.get(url_price)
                 js  = resp.json()
+                #Falls die Antwort keine Kurswerte enthält, wird der Nutzer informiert und es wird gestoppt
 
                 if "values" not in js:
                     st.error(f"No data for '{ticker}'.")
                     st.stop()
 
-                df = pd.DataFrame(js["values"])
-                df["datetime"] = pd.to_datetime(df["datetime"])
+                df = pd.DataFrame(js["values"]) #JSON-Daten in einen DataFrame umwandeln.
+                df["datetime"] = pd.to_datetime(df["datetime"]) #Die Spalte datetime wird in ein Datumsformat gebracht.
                 df.set_index("datetime", inplace=True)
-                df = df.astype(float).sort_index()  
+                df = df.astype(float).sort_index()  #Alle Werte werden als float konvertiert und chronologisch sortiert.
 
 
-                # 2) Prepare regression
-                df["Date"] = df.index
-                df["Date_ordinal"] = df["Date"].map(pd.Timestamp.toordinal)
+                #2)Regression vorbereiten
+                df["Date"] = df.index #Erstellung einer neuen Spalte Date als Kopie des Index
+                df["Date_ordinal"] = df["Date"].map(pd.Timestamp.toordinal) #Konvertierung jedes Datum in eine numerische Ganzzahl, was nötig ist für das Regressionsmodell
 
                 X = df[["Date_ordinal"]]
                 y = df["close"]
                 if len(df) < 2:
-                    st.warning("Not enough points for regression.")
+                    st.warning("Not enough points for regression.") #Wenn es zu wenige Datenpunkte gibt, wird die Regression nicht durchgeführt (wurde von ChatGPT empfohlen)
                     st.stop()
-
+                #Train/Test Split mit Modelltraining, 80/20-Aufteilung der Daten für Training und Test    
                 X_train, X_test, y_train, y_test = train_test_split(
                     X, y, test_size=0.2, shuffle=False
                 )
                 model = LinearRegression().fit(X_train, y_train)
                 df["Prediction"] = model.predict(X)
 
-                # 3) Future dates
+                #3) Zukünftige Daten für zwei Jahre, beginnt ab de letzten Datum im Datensatz
                 last = df["Date"].max()
+                #Erstellen der zukünftige tägliche Datenpunkte ab dem nächsten Tag bis zwei Jahre später
                 future_dates = pd.date_range(
-                    start=last + timedelta(days=1),
-                    end= last + pd.DateOffset(years=2),
-                    freq="D"
+                    start=last + timedelta(days=1), #Start einen Tag nach dem letzten bekannten Datum
+                    end= last + pd.DateOffset(years=2), #Ende ist genau zwei Jahre nach dem letzten bekannten Datum
+                    freq="D" #Tägliche zukünftige Datenpunkte für 2 Jahre
                 )
                 fut_ord = (
                     future_dates.map(pd.Timestamp.toordinal)
-                                .to_numpy().reshape(-1,1)
+                                .to_numpy().reshape(-1,1) #hier werden die Datenpunkte in Ordinalzahlen umgewandelt, damit das Modell sie vorhersagen kann
                 )
-                future_preds = model.predict(fut_ord)
+                future_preds = model.predict(fut_ord) #Verwendung des trainierten Modell, um die zukünftigen Kurse vorherzusagen
 
-                # 4) Plot everything with markers
+                #4) Die Vorhersage wird geplottet mit Matplotlib
                 fig, ax = plt.subplots(figsize=(10,6))
                 ax.plot(df["Date"], y, label="Echte Kurse")
                 ax.plot(df["Date"], df["Prediction"],
                         linestyle="--",
-                        label="In-sample Fit")
+                        label="In-sample Fit") #gestrichelte Linie zur Darstellung des Modell-Fits
                 ax.plot(future_dates, future_preds,
                         linestyle="--",
-                        label="Forecast (2 Jahre)")
-                ax.set_xlabel("Datum")
+                        label="Forecast (2 Jahre)") #gestrichelte Linie für den Prognosezeitraum
+                ax.set_xlabel("Datum") #Achsenbeschriftung sowie Titel
                 ax.set_ylabel("Kurs (USD)")
                 ax.set_title(f"Vorhersage für {ticker} bis {future_dates[-1].date()}")
                 ax.legend()
                 st.pyplot(fig)
         except Exception as e:
-            st.error(f"Fehler beim Abrufen der Daten: {e}")     
+            st.error(f"Fehler beim Abrufen der Daten: {e}") #Fehlerbehandlung, falls im gesamten Prozess etwas schiefläuft, wurde von ChatGPT empfohlen
 
 elif selected == "News":
     
