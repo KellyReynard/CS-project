@@ -1,0 +1,483 @@
+"""
+Hinweis zur Entwicklung der Applikation:
+Diese Anwendung wurde im Rahmen des Kurses "Grundlagen und Methoden der Informatik für Wirtschaftswissenschaften" an der Universität St.Gallen in einer Zusammenarbeit zwischen den Studenten und ChatGPT entwickelt. 
+ChatGPT wurde als unterstützendes Werkzeug und Partner über den gesamten Entwicklungsprozess hinweg eingesetzt.
+
+Die Unterstützung durch die den Chatbot konzentrierte sich auf folgende Bereiche:
+
+-Entwicklung von Codebausteinen und Vorschlägen für Funktionsimplementierungen basierend auf den festgelegten Anforderungen.
+-Hilfe bei der Erkennung und Behebung von Fehlern im Code.
+-Vorschläge zur Verbesserung und Strukturierung des Codes, Lesbarkeit und Modularität.
+-Diskussion alternativer Lösungsansätze und Algorithmen sowie konzeptionelle Unterstützung.
+
+Die Entwickung stellte sich als iterativ Prozess dar. Wir formulierten die Anforderungen und Ideen, die mit ChatGPT gemeinsam besprochen wurden. 
+Wir haben unseren Code mit dem von der KI vorgeschlagene Code verglichen und kritisch überprüft. Basierend auf dem Vergleich haben wir unsern Code angepasst, verbessert, getestet und bewusst integriert. 
+Im Einklang mit den Richtlinien der Universität St.Gallen für den Umgang mit generativer KI wird die Unterstützung von ChatGPT hiermit vollständig offengelegt. 
+Die Verantwortung für den finalen Code und die Anwendung bleibt bei uns.
+"""
+
+
+
+import streamlit as st  # Streamlit ist das Framework für Web-Apps in Python
+import requests         # Damit werden HTTP-Anfragen an APIs gesendet
+import pandas as pd     # Die Library Pandas wird importiert für die Datenverarbeitung
+import plotly.express as px  # Diese Bibliothek wird verwendet für interaktive Graphen
+from streamlit_option_menu import option_menu  # Mit dieser Bibliothek kann ein Menü in der Seitenleiste eingefügt werden
+import numpy as np      # Numpy hilft uns mit Zahlen und Arrays zu erstellen
+from io import BytesIO # BytesIO ermöglicht uns das Arbeiten mit binären Daten
+import yfinance as yf # mit Yahoo können Finanzdaten bezogen bzw. abgerufen werden
+from sklearn.preprocessing import PolynomialFeatures # Dient zur Erzeugung von zusätzlichen Merkmalen für polynomielle Regressionen
+from sklearn.linear_model import LinearRegression # wird importiert um lineare Regressionsanalysen durchzuführen
+from streamlit_autorefresh import st_autorefresh # Wird importiert um die Seite "News" alle 60 Sekunden neu zu laden
+from sklearn.model_selection import train_test_split # train_test_split hilft dabei, die Daten in Trainings- und Testdaten zu unterteilen
+import matplotlib.pyplot as plt # matplotlib wird für die Visualisierung (Plotten) verwendet
+from datetime import datetime, timedelta # datetime wird benötigt, um mit Datumswerten zu arbeiten
+import openpyxl # openpyxl wird benötigt, um Excel-Dateien zu lesen
+import feedparser # feedparser wird verwendet, um RSS-Feeds zu parsen
+
+#Persönliche API-Schlüssel für den Zugang zu den Finanzdaten von den Datenanbieter
+API_KEY_TWELVEDATA = "fa6409603f0f4d2d9413c1b0a01b68ed"
+API_KEY_FMP = "g8o3R38ppGAobko7Iq3TFPCgQy6JjpyZ"
+API_KEY_FINNHUB = "cvt9u2pr01qhup0v5oa0cvt9u2pr01qhup0v5oag"
+
+st.set_page_config(page_title="The CapWise App", layout="wide")
+
+with st.sidebar: #Erstellen des Navigationsmenüs in der linken Seitenleiste
+    selected = option_menu(
+        menu_title="Navigation",  #Titel des Menüs
+        options=["Übersicht", "Risikoprofil", "Investitionsempfehlung", "Obligationen Suche", "Aktien Suche", "News"],  # Menüoptionen
+        icons=["house", "bar-chart", "lightbulb", "search", "graph-up", "newspaper"],  # Symbole neben den Optionen
+        menu_icon="cast",  #Icon oben links
+        default_index=0  #Die erste Seite ("Overview") wird standardmäßig angezeigt
+    )
+if selected == "Übersicht": #Erste Seite: Übersicht
+    st.title("The CapWise App")
+    st.write("Willkommen zur CapWise App! Die App hilft dir dabei dein Risikprofil zu bestimmen und dein Geld richtig anzulegen.")
+    st.video("https://www.youtube.com/watch?v=K9SiRyumlzw") #Einfügen unseres Videos in die Applikation
+
+
+    st.markdown("""
+    ### 💬 Wer sind wir?
+
+    Wir sind ein Team von Studierenden, das eine moderne, benutzerfreundliche Investment-App entwickelt hat.
+
+    ---
+
+    ### 🎯 Unser Ziel
+
+    Wir wollen es einfacher machen, in die Welt der Investitionen einzusteigen.  
+    *Du gibst dein Risikoprofil an, wir geben dir klare Empfehlungen.*
+
+    ---
+
+    ### Was findest du in unserer App?
+
+    - 📊 *Risikoprofilanalyse* – Wir analysieren deine Risikobereitschaft
+    - 💡 *Empfohlene Portfolio-Zusammensetzung* – angepasst an dich
+    - 🔍 *Obligationenübersicht* – mit Laufzeiten, Zinssätzen und Risiken
+    - 📈 *Aktienrecherche mit Prognose* – inklusive Kursverlauf und Machine-Learning-Forecast
+    - 📰 *Live-Finanznachrichten* – für jedes Unternehmen, z. B. Apple, Tesla oder UBS
+
+    ---
+
+    Diese Anwendung richtet sich an:
+    - Einsteiger
+    - Studierende
+    - Finanzinteressierte
+
+    """)
+
+if selected == "Risikoprofil": #Zweite Seite: Hier werden Fragen aufgelistet, um das optimale Risikprofil zu ermitteln
+    st.title("Risikoprofil")
+    st.write("Hier wird dein Risikoprofil anhand einiger Fragen bestimmt.")
+    age = st.slider("Wie alt bist du?", min_value=18, max_value=100, step=1)#Frage 1: Alter des Nutzers abfragen, extra erst ab dem Altersjahr von 18 Jahren möglich
+    invest_horizon = st.number_input("Wie viele Jahre möchtest du anlegen?", min_value=1, step=1) #Frage 2: Anlagehorizont: Zahlenfeld, in dem die Anzahl Jahre der Investition bestimmt werden
+    risk_behavior = st.slider("Wie risikofreudig bist du?", min_value=0, max_value=100, step=1, 
+                              help="0 = konservativ, 100 = aggressiv")#Frage 3: Persönliche Risikobereitschaft (zwischen 0 und 100), wird bestimmt mit Slider
+    st.write("Wie würdest du reagieren, wenn der Aktienkurs fällt?")   #Frage 4: Reaktion bei Kursverlusten, hier wird nachfolgend ein Graph aufgezeigt
+    st.write("Beispiel: der Kurs sinkt um 20 %")
+
+    #Visualisierung eines fallenden Aktienkurses, um dem Nutzer ein Gefühl für Verluste zu geben, der aktualisiert sich jedesmal aufs neue
+    dates = pd.date_range(start="2023-01-01", periods=100)
+    start_price = 110
+    end_price = start_price * 0.8  #20 % Verlust
+    negativ_trend = np.linspace(start_price, end_price, 100)
+    random_var = np.random.normal(loc=0, scale=2, size=100)
+    stock_prices = negativ_trend + random_var #Preis mit Trend  Schwankungen berechnen
+    df = pd.DataFrame({"Date": dates, "Price": stock_prices})
+    df.set_index("Date", inplace=True)
+    fig = px.line(df, x=df.index, y="Price", title="Fallender Aktienkurs")
+    st.plotly_chart(fig)
+
+    #hier dann die Frage 4, wie sich die Person fühlt, bei so einem Kursrückgang
+    loss_feeling = st.radio("Wie fühlst du dich bei finanziellen Verlusten?", 
+                            options=["Kaum berührt", "Waren mir unangenehm", "Unangenehm und Befürchtung alles zu verlieren", "Keine Aussage trifft zu"])
+
+    #Frage 5: Wie viel Geld möchte man investieren?
+    invest_amount = st.selectbox("Wie hoch ist dein Anlagebetrag?", 
+                                     options=["0-10 Tausend", "10-50 Tausend", "100-500 Tausend", ">500 Tausend"])
+
+    #Klassifizierung des Nutzers in einen Anlagetyp, abhängig von seinen Antworten, aber nur wenige Kombinationen. Es gäbe natürlich extrem viele verschieden Kombinationen, welche man kombinieren könnte um eine exaktes Anlageprofil zu bestimmen. Wir haben uns aus Komplexitätsgründen dagegen entschieden.
+    if invest_horizon <= 5 and risk_behavior <= 30 and loss_feeling == "Unangenehm und Befürchtung alles zu verlieren" and invest_amount == "0-10 Tausend":
+        asset_class = "Einkommen"
+    elif invest_horizon <= 5 and risk_behavior <= 50 and loss_feeling in ["Unangenehm und Befürchtung alles zu verlieren", "Waren mir unangenehm"]:
+        asset_class = "Defensiv"
+    elif invest_horizon <= 10 and risk_behavior <= 50 and loss_feeling in ["Waren mir unangenehm", "Kaum berührt"] and invest_amount in ["10-50 Tausend", "100-500 Tausend"]:
+        asset_class = "Konservativ"
+    elif invest_horizon >= 10 and risk_behavior <= 70 and loss_feeling in ["Kaum berührt", "Waren mir unangenehm"]:
+        asset_class = "Ausgewogen"
+    elif invest_horizon >= 15 and risk_behavior >= 70 and loss_feeling == "Kaum berührt" and invest_amount == ">500 Tausend":
+        asset_class = "Aktien"    
+    elif invest_horizon >= 10 and risk_behavior >= 60 and loss_feeling in ["Kaum berührt", "Waren mir unangenehm"]:
+        asset_class = "Wachstum"
+
+    else:
+        asset_class = "Ausgewogen"  #Standardtyp, wenn keine eindeutige Kategorie passt
+
+    #Zeichnen der Risiko-Rendite-Kurve mit Markierung des entsprechenden Nutzerprofils
+    x_risiko = np.linspace(0, 100, 6) #Risiko-Werte von 0 bis 100 für sechs Anlageklassen
+    y_return = [1, 2.5, 4, 6.5, 9, 12] #Erwartete Renditen für die jeweiligen Risiko-Werte
+    Asset_Klassen = ["Einkommen", "Defensiv", "Konservativ", "Ausgewogen", "Wachstum", "Aktien"]
+    
+    Vermögens_Positionen = {x: (x_risiko[i], y_return[i]) for i, x in enumerate(Asset_Klassen)} #Mapping jeder Anlageklasse zu ihrer Risiko-Rendite-Koordinate
+
+    #Erstellen einer Risiko-Rendite-Linie
+    figure_risiko_return = px.line(x=x_risiko, y=y_return, labels={"x": "Risiko", "y": "Rendite"}, title="Risikoprofil und Anlagetypen")
+    for item in Asset_Klassen: #Jede Anlageklasse wird als blauen Marker zur Grafik hinzugefügt
+        x_pos, y_pos = Vermögens_Positionen[item]
+        figure_risiko_return.add_scatter(x=[x_pos], y=[y_pos], mode="markers+text", text=[item], textposition="top center", marker=dict(size=8, color="blue"))
+
+    selected_x, selected_y = Vermögens_Positionen[asset_class] #Der vom Nutzer bestimmten Anlagetyp wird rot markiert
+    figure_risiko_return.add_scatter(x=[selected_x], y=[selected_y], mode="markers+text", 
+                                textposition="top center", marker=dict(size=12, color="red", line=dict(width=2, color="black")))
+
+    st.plotly_chart(figure_risiko_return)
+    
+    st.write(f"**Basierend auf deinen Antworten ist dein Anlagetyp:** {asset_class}") #Anzeige des Namen des ermittelten Anlagetypen
+    st.session_state["Anlagetyp"] = asset_class #Der Anlagetyp wird in Session State gespeichert und nachher verwendet im Tab Investitionsempfehlung
+    
+elif selected == "Investitionsempfehlung":  #Dritte Seite: Investitionsempfehlung basierend auf dem ermittelen Risikoprofil
+    st.title("Investitionsempfehlung")
+    st.write("Empfohlene Portfolio-Zusammensetzung basierend auf deinem Profil.")
+    
+    Asset_Klassen = ["Einkommen", "Defensiv", "Konservativ", "Ausgewogen", "Wachstum", "Aktien"]
+    
+   
+    asset_class = st.session_state.get("Anlagetyp", "Unbekannt") #hier wird auf den vorherigen Risikotyp zugegriffen
+    st.write(f"Die von dir bestimmte Anlageklasse: **{asset_class}**")
+    
+    #Nachfolgend sind die verschiedenen Kombinationen der Assetklassen je nach ermittelten Anlagetyp
+    recommendations = {
+        "Einkommen":   {"Aktien": 0.0,  "Obligationen": 0.9,  "Cash": 0.1},
+        "Defensiv":    {"Aktien": 0.25, "Obligationen": 0.75, "Cash": 0.1},
+        "Konservativ": {"Aktien": 0.35, "Obligationen": 0.55, "Cash": 0.1},
+        "Ausgewogen":  {"Aktien": 0.55, "Obligationen": 0.35, "Cash": 0.1},
+        "Wachstum":    {"Aktien": 0.75, "Obligationen": 0.15, "Cash": 0.1},
+        "Aktien":      {"Aktien": 0.9,  "Obligationen": 0.0,  "Cash": 0.1}
+    }
+
+  
+    if asset_class in recommendations: #falls der Anlagetyp gültig ist wird ein Kuchendiagramm mit der Aufteilung auf die verschiedenen Anlageklassen dargestellt
+        dist = recommendations[asset_class]
+        df_dist = (
+            pd.DataFrame.from_dict(dist, orient="index", columns=["Anteil"])
+              .reset_index()
+              .rename(columns={"index": "Assetklasse"})
+        )
+        fig_rec = px.pie(
+            df_dist,
+            names="Assetklasse",
+            values="Anteil",
+            title="Empfohlene Portfolio-Zusammensetzung"
+        )
+        st.plotly_chart(fig_rec)
+    else:
+        st.warning("Assetklasse wurde nicht gefunden in Investitionsempfehlung. Bitte überprüfe deinen Anlagetyp.") #Wurde von ChatGPT empfohlen, falls die Assetklasse nicht gefunden werden würde.
+
+    st.info("Hinweis: Diese Empfehlung ist generisch und ersetzt keine individuelle Anlageberatung.") #Hinweis/Disclaimer, dass dies keine umfangreiche Bewertung des Analgetyps ist und somit keine Anlageempfehlung
+
+elif selected == "Obligationen Suche":  #Vierte Seite: Obligationen anzeigen, eine Datenbank erstellt mittels Excel, aktuelle Obligationen Daten wurden von der Webpage von Six (https://www.six-group.com/de/market-data/bonds/bond-explorer.html) heruntergeladen und als Datenbank in das Projekt implementiert. 
+    st.title("Obligationen Search")
+    st.write("Aktuelle Obligationen auf dem Markt. Die Daten werden von SIX zur Verfügung gestellt.")
+
+
+    try:
+    
+        excel_url = "https://raw.githubusercontent.com/KellyReynard/CS-project/main/Anleihen_Daten.xlsx" #Zugrifft auf die Datenbank bzw. Excel
+        response = requests.get(excel_url)
+        response.raise_for_status() #hier wird ein Fehler aufgrufen, bei fehlerhaftem HTTP-Statuscode
+        df_bonds = pd.read_excel(BytesIO(response.content), engine="openpyxl") #Excel Daten werden in einen DataFrame eingelesen
+        if df_bonds["MaturityDate"].dtype in [int, float]: #hierbei wird das Datum der Maturity als Datum formatiert, da die Daten im Datentyp int/float vorliegen
+            df_bonds["MaturityDate"] = pd.to_datetime(df_bonds["MaturityDate"].astype(int).astype(str), format="%Y%m%d")
+        st.dataframe(df_bonds) #DF wird aufgerufen
+
+    except Exception as e: #wieder von ChatGPT empfohlen, falls 
+        st.error(f"Fehler beim Laden der Datei: {e}")
+
+    
+elif selected == "Aktien Suche":  #Fünfte Seite: Aktien suchen und Kursverlauf anzeigen
+    st.title("Stock Search")
+
+    session = requests.Session() #Session mit Header, ist für gewisse API's notwendig, um mehrere Anfragen an dieselbe API zu senden, d.h. dauerhafte Verbindung zur API
+    session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}) #identifizierung von automatisierten Anfragen 
+
+    ticker = st.text_input("Gib das Aktien-Ticker-Symbol ein (z.B. AAPL, IBM):") #Input Feld für die Ticker der Aktien
+    selected_period = st.selectbox(
+        "Wähle den Zeitraum:",
+        options=["1 Tag","7 Tage", "1 Monat", "3 Monate", "6 Monate", "1 Jahr", "2 Jahr", "5 Jahr", "10 Jahr"],
+        index=1
+    )
+
+    period_to_outputsize = {
+        "1 Tag": 1,
+        "7 Tage": 7,
+        "1 Monat": 30,
+        "3 Monate": 90,
+        "6 Monate": 180,
+        "1 Jahr": 365,
+        "2 Jahr": 730,
+        "5 Jahr": 1825,
+        "10 Jahr": 3650,
+        
+    } #Mapping des Zeitraums für die API Abfrage
+    outputsize = period_to_outputsize[selected_period] #der vom Benutzer ausgewählten Zeitraum wird in die numerische Anzahl Tage übersetzt, wird verwendet für den Abruf der API
+
+    if ticker:
+        try:
+            
+            url_price = (
+                f"https://api.twelvedata.com/time_series?"
+                f"symbol={ticker}&interval=1day&outputsize={outputsize}&apikey={API_KEY_TWELVEDATA}" # Kursdaten werden der API TwelveData abgerufen
+            )
+            response_price = requests.get(url_price)
+            data_price = response_price.json()
+
+            if "values" in data_price: #DataFrame mit den Kursdaten wird erstellt, der DF wird nachher für den Plot verwendet
+                df_price = pd.DataFrame(data_price["values"])
+                df_price["datetime"] = pd.to_datetime(df_price["datetime"])
+                df_price.set_index("datetime", inplace=True)
+                df_price = df_price.astype(float)
+                df_price.sort_index(inplace=True) 
+
+                print(df_price.head())  #Debugging, Ausgabe der ersten Zeilen des DataFrames
+
+                #Zeitreihen Plot wird erstellt, wobei der Aktienkurs dargestellt wird
+                fig_price = px.line(
+                    df_price,
+                    x=df_price.index,
+                    y="close",
+                    title=f"{ticker} Aktienkurs über {selected_period}"
+                )
+                st.plotly_chart(fig_price)
+            else:
+                st.error("Keine Daten für das eingegebene Ticker-Symbol gefunden.") #wurde von ChatGPT empfohlen, falls für den eingegeben Ticker keine Daten abgerufen werden können von der API
+
+            #Abschnitt der Analystenempfehlungen, hier werden die Daten von der API Finnhub abegrufen, wobei die Anzahl von "Buy", "Hold" sowie "Sell" Einschätzungen der Analysten angezeigt werden
+            st.subheader("Analystenempfehlungen")
+            url_finnhub = f"https://finnhub.io/api/v1/stock/recommendation?symbol={ticker}&token={API_KEY_FINNHUB}"
+            response_finnhub = requests.get(url_finnhub)
+            data_finnhub = response_finnhub.json()
+
+            #Zeitlich sortierte Tabelle mit den Analystenbewertungen wird erstellt, danach wird von der die Einschätzungen extrahiert
+            if isinstance(data_finnhub, list) and len(data_finnhub) > 0: #Prüft ob es eine Liste ist und diese nicht leer ist
+                df_finnhub = pd.DataFrame(data_finnhub) 
+                df_finnhub["period"] = pd.to_datetime(df_finnhub["period"]) #Bewertungdatum als String wird in eine Datumobjekt konvertiert
+                df_finnhub = df_finnhub.sort_values("period", ascending=False) #Sortiert die Tabelle absteigend nach Datum, sodass die neueste Empfehlung oben steht
+
+                #Anzeige der Analystenempfehlungen
+                st.write("Die neuesten Empfehlungen respektive Analysteneinschätzungen zu dieser Aktie")
+                st.write(f"🟢 Buy: {df_finnhub.iloc[0]['buy']}")
+                st.write(f"🟡 Hold: {df_finnhub.iloc[0]['hold']}")
+                st.write(f"🔴 Sell: {df_finnhub.iloc[0]['sell']}")
+
+                
+            else:
+                st.info("Keine Analystendaten gefunden.") #wurde von ChatGPT empfohlen, falls keine Analystenempfehlugen für die eingegeben Aktien von der API abgerufen werden können
+
+
+
+            # Der Titel der Web-App wird hier festgelegt
+            st.title("Aktienkurs-Vorhersage mit Linearer Regression")
+ 
+            
+            #1) Prüfen ob Daten vorhanden sind      
+            if df_price.empty:
+                st.error(f"Keine Daten für das Ticker-Symbol '{ticker}' gefunden. Bitte überprüfe den Ticker.")
+            else:
+                            #Daten werden abgerufen und gesamte Kurshistorie wird geladen
+                start_date = "2015-01-01"
+                end_date   = datetime.today().strftime("%Y-%m-%d")
+                #hier wird eine URS zur TwelveData API eingebaut, um die Kursdaten im Tagesintervall zu laden
+                url_price = (
+                    f"https://api.twelvedata.com/time_series?"
+                    f"symbol={ticker}&interval=1day"
+                    f"&start_date={start_date}"
+                    f"&end_date={end_date}"
+                    f"&apikey={API_KEY_TWELVEDATA}"
+                )
+                resp = session.get(url_price)
+                js  = resp.json()
+                #Falls die Antwort keine Kurswerte enthält, wird der Nutzer informiert und es wird gestoppt
+
+                if "values" not in js:
+                    st.error(f"No data for '{ticker}'.")
+                    st.stop()
+
+                df = pd.DataFrame(js["values"]) #JSON-Daten in einen DataFrame umwandeln.
+                df["datetime"] = pd.to_datetime(df["datetime"]) #Die Spalte datetime wird in ein Datumsformat gebracht.
+                df.set_index("datetime", inplace=True)
+                df = df.astype(float).sort_index()  #Alle Werte werden als float konvertiert und chronologisch sortiert.
+
+
+                #2)Regression vorbereiten
+                df["Date"] = df.index #Erstellung einer neuen Spalte Date als Kopie des Index
+                df["Date_ordinal"] = df["Date"].map(pd.Timestamp.toordinal) #Konvertierung jedes Datum in eine numerische Ganzzahl, was nötig ist für das Regressionsmodell
+
+                X = df[["Date_ordinal"]]
+                y = df["close"]
+                if len(df) < 2:
+                    st.warning("Not enough points for regression.") #Wenn es zu wenige Datenpunkte gibt, wird die Regression nicht durchgeführt (wurde von ChatGPT empfohlen)
+                    st.stop()
+                #Train/Test Split mit Modelltraining, 80/20-Aufteilung der Daten für Training und Test    
+                X_train, X_test, y_train, y_test = train_test_split(
+                    X, y, test_size=0.2, shuffle=False
+                )
+                model = LinearRegression().fit(X_train, y_train)
+                df["Prediction"] = model.predict(X)
+
+                #3) Zukünftige Daten für zwei Jahre, beginnt ab de letzten Datum im Datensatz
+                last = df["Date"].max()
+                #Erstellen der zukünftige tägliche Datenpunkte ab dem nächsten Tag bis zwei Jahre später
+                future_dates = pd.date_range(
+                    start=last + timedelta(days=1), #Start einen Tag nach dem letzten bekannten Datum
+                    end= last + pd.DateOffset(years=2), #Ende ist genau zwei Jahre nach dem letzten bekannten Datum
+                    freq="D" #Tägliche zukünftige Datenpunkte für 2 Jahre
+                )
+                fut_ord = (
+                    future_dates.map(pd.Timestamp.toordinal)
+                                .to_numpy().reshape(-1,1) #hier werden die Datenpunkte in Ordinalzahlen umgewandelt, damit das Modell sie vorhersagen kann
+                )
+                future_preds = model.predict(fut_ord) #Verwendung des trainierten Modell, um die zukünftigen Kurse vorherzusagen
+
+                #4) Die Vorhersage wird geplottet mit Matplotlib
+                fig, ax = plt.subplots(figsize=(10,6))
+                ax.plot(df["Date"], y, label="Echte Kurse")
+                ax.plot(df["Date"], df["Prediction"],
+                        linestyle="--",
+                        label="In-sample Fit") #gestrichelte Linie zur Darstellung des Modell-Fits
+                ax.plot(future_dates, future_preds,
+                        linestyle="--",
+                        label="Forecast (2 Jahre)") #gestrichelte Linie für den Prognosezeitraum
+                ax.set_xlabel("Datum") #Achsenbeschriftung sowie Titel
+                ax.set_ylabel("Kurs (USD)")
+                ax.set_title(f"Vorhersage für {ticker} bis {future_dates[-1].date()}")
+                ax.legend()
+                st.pyplot(fig)
+        except Exception as e:
+            st.error(f"Fehler beim Abrufen der Daten: {e}") #Fehlerbehandlung, falls im gesamten Prozess etwas schiefläuft, wurde von ChatGPT empfohlen
+
+                        
+            
+
+elif selected == "News":  #Sechste Seite: Aktuellste News zu jeweiligen Aktien anzeigen lasen
+
+    try:
+        st.title("Börsennachrichten – Echtzeit")
+        st.caption("Die Seite aktualisiert sich automatisch alle 60 Sekunden.")  #Hinweis, dass sich die Seite jeweils automatisch aktualisiert
+
+        #Automatische Aktualisierung der Seite alle 60 Sekunden, damit immer die aktuellsten News angezeigt werden
+        st_autorefresh(interval=60 * 1000, key="news_refresh")
+
+        #Eingabefeld, in das der Nutzer ein Ticker-Symbol eingibt
+        symbol = st.text_input("Gib ein Ticker-Symbol ein (z.B. AAPL, TSLA, IBM):")
+
+        #Holt Nachrichten über yfinance für das eingegebene Symbol
+        def get_yf_news(ticker_symbol):
+            try:
+                ticker = yf.Ticker(ticker_symbol)  #Objekt für das eingegebene Symbol wird erzeugt
+                items = ticker.news or []  #Nachrichten abrufen (leere Liste, falls keine vorhanden)
+                parsed = []  #Liste wird erstellt für die aufbereiteten Nachrichten
+
+                for item in items:  #Iteration über alle Nachrichten
+                    if "title" in item and "provider" in item and "link" in item:
+                        #Nur Nachrichten mit Titel, Quelle und Link verarbeiten
+                        parsed.append({
+                            "Titel": item["title"],
+                            "Quelle": item["provider"].get("displayName", "Unbekannt"),
+                            "Veröffentlicht am": item.get("providerPublishTime", 0),  #Zeit als Zeitstempel
+                            "Link": item["link"]
+                        })
+                return parsed  #Hier wird die aufbereitete Nachrichtenliste zurückgegeben
+
+            except Exception as e:
+                st.error(f"Fehler beim Abrufen der yfinance-Nachrichten: {e}")  #Fehlermeldung anzeigen, falls die News nicht abgerufen werden könne (von ChatGPT empfohlen)
+                return []  #Leere Liste zurückgeben, wenn Fehler auftritt
+
+        #Holt Nachrichten über Google News, falls yfinance leer ist. Zur Absicherung.
+        def get_google_news(ticker_symbol):
+            rss_url = (
+                "https://news.google.com/rss/search?" # RL für die Google News-Suche (deutsche Ausgabe)
+                f"q={ticker_symbol}%20Aktien&hl=de&gl=DE&ceid=DE:de"
+            )
+
+            feed = feedparser.parse(rss_url)  #RSS-Feed analysieren
+
+            parsed = []
+
+            for entry in feed.entries[:10]:  #Es werden nur die ersten 10 Einträge verwendet
+                parsed.append({
+                    "Titel": entry.title,
+                    "Quelle": entry.get("source", {}).get("title", "Google News"),  #Quelle wird hier angegeben
+                    "Veröffentlicht am": entry.get("published", ""),  #Veröffentlichungszeitpunkt
+                    "Link": entry.link  #Direktlink zum Artikel
+                })
+            return parsed  #Rückgabe der aufbereiteten Nachrichten
+
+        #Konvertiert und zeigt nachfolgend die Nachrichten sauber formatiert an
+        def normalize_and_display(news_list):
+            df = pd.DataFrame(news_list)  #Liste wird in ein DataFrame umgewandelt
+
+
+            #Veröffentlichungszeitpunkt wird konvertiert, es werden zwei verschiedenen Methoden verwendet, um gültige Datumsangaben zu erzeugen,
+            #abhängig davon, ob es sich um Unix-Zeitstempel oder Datumsstrings handelt.
+            df["Veröffentlicht am"] = pd.to_datetime( #Die Spalte Veröffentlicht am wird in Datetime-Objekte umgewandelt, falls nicht klappt, wird im zweiten Versuch ungültige Einträge koerciert, diesmal ohne unit="s"
+                df["Veröffentlicht am"], 
+                unit="s", errors="coerce"  #Wenn eine Umwandlung fehlschlägt, wird der Wert zu NaT, also ein ungültiger Zeitwert
+            ).fillna(pd.to_datetime(df["Veröffentlicht am"], errors="coerce")) #Jetzt wird angenommen, dass es sich um Datumsstrings handelt
+
+            #Sortiere nach Veröffentlichungsdatum, neueste zuerst
+            df.sort_values("Veröffentlicht am", ascending=False, inplace=True)
+
+            df = df.head(10)
+
+            #Hier werden aus den Links klickbare HTML-Links gemacht
+            df["Link"] = df["Link"].apply(
+                lambda url: f'<a href="{url}" target="_blank">Öffnen</a>'
+            )
+
+            st.markdown("### Aktuelle Nachrichten:")
+
+
+            #DataFrame als HTML-Tabelle anzeigen, HTML-Inhalte sind erlaubt (von ChatGPT empfohlen)
+            st.write(df.to_html(escape=False, index=False), unsafe_allow_html=True) #Index-Spalte wird nicht ausgegebe, damit wir eine saubere Tabelle haben
+            #"unsafe_allow_html" erlaubt es Links als klickbare Buttons darzustellen und erlaubt unischere HTML-Code
+
+        #Wenn der Nutzer ein Ticker-Symbol eingegeben hat, werden die Nachrichten über yfinance geholt
+        if symbol:
+            news = get_yf_news(symbol)
+
+            if not news:  #Wenn jedoch keine yfinance-News vorhanden sind, wird als Backup Google News verwendet
+                st.info(f"Keine yfinance-News für `{symbol}`—hole Google News RSS als Fallback.") #Dank RSS können die Inhalte maschinenlesbar bereitgestellt werden und die Inhalte automatisch aktualisiert werden
+                news = get_google_news(symbol) 
+
+            if news:
+                normalize_and_display(news)
+            else:
+                st.info("Auch über RSS keine Nachrichten verfügbar.")  #Wenn sowohl über yfinance und Google keine News abrufbar sind
+
+        else:
+            st.info("Bitte gib ein Ticker-Symbol ein, um Nachrichten zu sehen.")  #Hinweis, wenn hier kein Symbol eingegeben wurde
+
+    except Exception as e:
+        st.error(f"Fehler beim Laden der Nachrichten-Seite: {e}")  #Fehler allgemein abfangen und anzeigen, wurd ebenfalls von ChatGPT empfohlen, falls es nicht funktioniert
