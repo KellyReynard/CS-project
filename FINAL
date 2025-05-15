@@ -1,19 +1,17 @@
 """
-Hinweis zur Entwicklung der Applikation:
-Diese Anwendung wurde im Rahmen des Kurses "Grundlagen und Methoden der Informatik für Wirtschaftswissenschaften" an der Universität St.Gallen in einer Zusammenarbeit zwischen den Studenten und ChatGPT entwickelt. 
-ChatGPT wurde als unterstützendes Werkzeug und Partner über den gesamten Entwicklungsprozess hinweg eingesetzt.
+Diese Applikation wurde im Rahmen des Kurses "Grundlagen und Methoden der Informatik für Wirtschaftswissenschaften" an der Universität St. Gallen entwickelt.
+Die Umsetzung erfolgte in Zusammenarbeit zwischen den Studierenden und ChatGPT, das als unterstützendes Werkzeug über den gesamten Entwicklungsprozess hinweg eingesetzt wurde.
 
-Die Unterstützung durch den Chatbot konzentrierte sich auf folgende Bereiche:
+Der Einsatz von ChatGPT konzentrierte sich insbesondere auf folgende Aspekte:
+-Unterstützung bei der Entwicklung von Codebausteinen und Funktionsvorschlägen auf Basis der definierten Anforderungen.
+-Hilfe bei der Identifikation und Behebung von Programmfehlern.
+-Anregungen zur Verbesserung der Code-Struktur, Lesbarkeit und Modularität.
+-Diskussion alternativer Lösungswege, Algorithmen und konzeptioneller Ansätze.
+-Die Entwicklung erfolgte iterativ: Anforderungen und Ideen wurden formuliert, anschließend gemeinsam mit ChatGPT reflektiert und diskutiert.
+Vorschläge der KI wurden kritisch geprüft, mit dem eigenen Code verglichen und bei Eignung gezielt angepasst, verbessert, getestet und integriert.
 
--Entwicklung von Codebausteinen und Vorschlägen für Funktionsimplementierungen basierend auf den festgelegten Anforderungen.
--Hilfe bei der Erkennung und Behebung von Fehlern im Code.
--Vorschläge zur Verbesserung und Strukturierung des Codes, Lesbarkeit und Modularität.
--Diskussion alternativer Lösungsansätze und Algorithmen sowie konzeptionelle Unterstützung.
-
-Die Entwickung stellte sich als iterativer Prozess dar. Wir formulierten die Anforderungen und Ideen, welche in einer anschliessenden Phase mit gezielten Suchabfragen in der Applikation ChatGPT besprochen wurden. 
-Wir haben unseren Code mit dem von der KI vorgeschlagenen Code verglichen und kritisch überprüft. Basierend auf dem Vergleich haben wir unseren Code angepasst, verbessert, getestet und bewusst integriert. 
-Im Einklang mit den Richtlinien der Universität St.Gallen für den Umgang mit generativer KI wird die Unterstützung von ChatGPT hiermit vollständig offengelegt. 
-Die Verantwortung für den finalen Code und die Anwendung bleibt bei uns.
+Gemäss den Richtlinien der Universität St. Gallen im Umgang mit generativer KI wird die Einbindung von ChatGPT hiermit transparent offengelegt. 
+Die inhaltliche und technische Verantwortung für den finalen Code und die Applikation liegt bei uns Studierenden.
 """
 
 
