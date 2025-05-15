@@ -71,10 +71,10 @@ if selected == "Übersicht": #Erste Seite: Übersicht
     ### Was findest du in unserer App?
 
     - 📊 *Risikoprofilanalyse* – Wir analysieren deine Risikobereitschaft
-    - 💡 *Empfohlene Portfolio-Zusammensetzung* – angepasst an dich
+    - 💡 *Empfohlene Portfolio-Zusammensetzung* – angepasst an deine individuelle Riskiobereitschaft
     - 🔍 *Obligationenübersicht* – mit Laufzeiten, Zinssätzen und Risiken
     - 📈 *Aktienrecherche mit Prognose* – inklusive Kursverlauf und Machine-Learning-Forecast
-    - 📰 *Live-Finanznachrichten* – für jedes Unternehmen, z. B. Apple, Tesla oder UBS
+    - 📰 *Live-Finanznachrichten* – für jedes Unternehmen, z.B. Apple, IBM oder Tesla
 
     ---
 
